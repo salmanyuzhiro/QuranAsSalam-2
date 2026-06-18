@@ -339,10 +339,14 @@ function switchView(view){
 
 /* ── DRAWER ───────────────────────────────────────────────── */
 function setupDrawer(){
-  document.getElementById('hamburger-btn').addEventListener('click', () => {
-    document.getElementById('drawer').classList.toggle('active');
-    document.getElementById('overlay').classList.toggle('active');
+  const hamburgerBtn = document.getElementById('hamburger-btn');
+
+if(hamburgerBtn){
+  hamburgerBtn.addEventListener('click', () => {
+    document.getElementById('drawer')?.classList.toggle('active');
+    document.getElementById('overlay')?.classList.toggle('active');
   });
+}
   document.getElementById('overlay').addEventListener('click', closeDrawer);
 
   document.getElementById('drawer-home').addEventListener('click',     () => switchView('home'));
@@ -382,40 +386,36 @@ function renderLastRead(){
 
 function showShalatInfo(){
 
-  if(!navigator.geolocation){
-    alert("GPS tidak didukung di perangkat ini");
-    return;
-  }
-
   navigator.geolocation.getCurrentPosition(
 
-    function(position){
+    function(pos){
 
-      const lat = position.coords.latitude;
-      const lon = position.coords.longitude;
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
 
-      alert(
-        "Lokasi berhasil ditemukan\n\n" +
-        "Latitude : " + lat +
-        "\nLongitude : " + lon +
-        "\n\nSiap digunakan untuk Jadwal Shalat"
-      );
+      fetch(`https://api.aladhan.com/v1/timings?latitude=${lat}&longitude=${lon}&method=11`)
+      .then(r => r.json())
+      .then(data => {
+
+        const t = data.data.timings;
+
+        alert(
+          "JADWAL SHALAT\n\n" +
+          "Subuh : " + t.Fajr + "\n" +
+          "Dzuhur : " + t.Dhuhr + "\n" +
+          "Ashar : " + t.Asr + "\n" +
+          "Maghrib : " + t.Maghrib + "\n" +
+          "Isya : " + t.Isha
+        );
+
+      });
 
     },
 
-    function(error){
+    function(){
 
-      alert(
-        "Aplikasi memerlukan izin lokasi.\n\n" +
-        "Aktifkan GPS lalu pilih IZINKAN."
-      );
+      alert("Izinkan akses lokasi terlebih dahulu");
 
-    },
-
-    {
-      enableHighAccuracy:true,
-      timeout:10000,
-      maximumAge:0
     }
 
   );
@@ -434,14 +434,16 @@ function showQiblatInfo(){
     function(position){
 
       const lat = position.coords.latitude;
-      const lon = position.coords.longitude;
+const lon = position.coords.longitude;
 
-      alert(
-        "Lokasi berhasil ditemukan\n\n" +
-        "Latitude : " + lat +
-        "\nLongitude : " + lon +
-        "\n\nSiap digunakan untuk Arah Kiblat"
-      );
+const arah = getQiblaDirection(lat, lon);
+
+alert(
+  "Arah Kiblat\n\n" +
+  Math.round(arah) + "° dari Utara" +
+  "\n\nLatitude : " + lat +
+  "\nLongitude : " + lon
+);
 
     },
 

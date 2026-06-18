@@ -298,7 +298,17 @@ function setupNav(){
 }
 
 function switchView(view){
-  const all = ['home','surah-list','surah-detail','audio-surah','page-audio','bookmark','settings'];
+  const all = [
+'home',
+'surah-list',
+'surah-detail',
+'audio-surah',
+'page-audio',
+'bookmark',
+'settings',
+'shalat',
+'qiblat'
+];
   all.forEach(v => {
     const el = document.getElementById(`${v}-view`);
     if(el) el.classList.add('hidden');
@@ -399,14 +409,40 @@ function showShalatInfo(){
 
         const t = data.data.timings;
 
-        alert(
-          "JADWAL SHALAT\n\n" +
-          "Subuh : " + t.Fajr + "\n" +
-          "Dzuhur : " + t.Dhuhr + "\n" +
-          "Ashar : " + t.Asr + "\n" +
-          "Maghrib : " + t.Maghrib + "\n" +
-          "Isya : " + t.Isha
-        );
+        const box = document.getElementById("shalat-content");
+
+        box.innerHTML = `
+        <div class="settings-card">
+
+          <div class="shalat-row">
+            <b>Subuh</b>
+            <span>${t.Fajr}</span>
+          </div>
+
+          <div class="shalat-row">
+            <b>Dzuhur</b>
+            <span>${t.Dhuhr}</span>
+          </div>
+
+          <div class="shalat-row">
+            <b>Ashar</b>
+            <span>${t.Asr}</span>
+          </div>
+
+          <div class="shalat-row">
+            <b>Maghrib</b>
+            <span>${t.Maghrib}</span>
+          </div>
+
+          <div class="shalat-row">
+            <b>Isya</b>
+            <span>${t.Isha}</span>
+          </div>
+
+        </div>
+        `;
+
+        switchView('shalat');
 
       });
 

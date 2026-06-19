@@ -975,35 +975,55 @@ body.dark .shalat-item-active { background: rgba(6,95,70,0.15); }
 .compass-E { right: 10px; top: 50%; transform: translateY(-50%); }
 .compass-W { left: 10px; top: 50%; transform: translateY(-50%); }
 
+.compass-outer {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--bg2) 0%, var(--bg) 100%);
+  border: 3px solid var(--border);
+  box-shadow:
+    0 0 0 6px var(--card),
+    0 0 0 8px var(--border),
+    0 8px 32px var(--shadow-md);
+}
+
 .compass-needle-wrap {
   position: absolute;
-  inset: 0;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  margin-left: -20px;
+  transform-origin: center center;
+  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   display: flex;
   align-items: center;
   justify-content: center;
-  transform-origin: center center;
-  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
+
 .compass-center-dot {
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   background: var(--primary);
   border-radius: 50%;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 10;
-  box-shadow: 0 0 0 4px var(--card), 0 0 0 6px var(--g300);
+  box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--g300);
 }
+
 .compass-kaaba-icon {
   position: absolute;
-  top: -2px;
+  top: 6px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 20px;
+  font-size: 18px;
   z-index: 5;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
 }
 
 .qiblat-deg-badge {

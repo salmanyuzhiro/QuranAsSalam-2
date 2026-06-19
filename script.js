@@ -633,12 +633,11 @@ async function renderQiblat(lat, lon) {
           </div>
           <!-- Rotating needle -->
           <div class="compass-needle-wrap" id="compass-needle-wrap" style="transform:rotate(${deg}deg)">
-            <svg viewBox="0 0 60 120" width="60" height="120">
-              <!-- North (Kaaba) — green -->
-              <polygon points="30,4 40,60 20,60" fill="#10b981"/>
-              <polygon points="30,4 40,60 20,60" fill="url(#gNorth)"/>
-              <!-- South — gray -->
-              <polygon points="30,116 40,60 20,60" fill="#94a3b8"/>
+            <svg viewBox="0 0 40 40" width="40" height="40" style="overflow:visible">
+              <!-- Ujung hijau = arah Kiblat (atas) -->
+              <polygon points="20,2 26,20 20,17 14,20" fill="url(#gNorth)"/>
+              <!-- Ujung abu = belakang (bawah) -->
+              <polygon points="20,38 26,20 20,23 14,20" fill="#94a3b8"/>
               <defs>
                 <linearGradient id="gNorth" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stop-color="#34d399"/>
@@ -719,9 +718,22 @@ function listenOrientation(qiblaDeg) {
 function handleOrientation(e, qiblaDeg) {
   const wrap = document.getElementById('compass-needle-wrap');
   if (!wrap) return;
-  const heading  = e.alpha ? (360 - e.alpha) : 0;
+
+  let heading = 0;
+
+  // iOS: webkitCompassHeading langsung = derajat dari Utara (paling akurat)
+  if (typeof e.webkitCompassHeading === 'number') {
+    heading = e.webkitCompassHeading;
+  }
+  // Android: alpha = rotasi layar, dibalik jadi heading Utara
+  else if (e.alpha !== null && e.alpha !== undefined) {
+    heading = (360 - e.alpha) % 360;
+  }
+
+  // Jarum berputar ke: sudut kiblat - heading device
   const rotation = (qiblaDeg - heading + 360) % 360;
-  wrap.style.transition = 'transform 0.3s ease';
+
+  wrap.style.transition = 'transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94)';
   wrap.style.transform  = `rotate(${rotation}deg)`;
 }
 

@@ -153,13 +153,22 @@ function audioUrl(surahNum, ayahNum){
   return `https://everyayah.com/data/${qariFolder(q)}/${s}${a}.mp3`;
 }
 
+/* ── DAFTAR QARI (10 Qari) ────────────────────────────────────
+   Nama folder ini sudah diverifikasi langsung ke server
+   everyayah.com supaya semua qari bisa diputar.
+   ───────────────────────────────────────────────────────────── */
 function qariFolder(q){
   const map = {
-    '01':'Alafasy_128kbps',
-    '02':'Abdul_Basit_Murattal_192kbps',
-    '03':'Minshawi_Murattal_128kbps',
-    '04':'Hani_Rifai_192kbps',
-    '05':'Maher_AlMuaiqly_128kbps',
+    '01':'Alafasy_128kbps',                  // Mishari Alafasy
+    '02':'Abdul_Basit_Murattal_192kbps',     // Abdul Basit
+    '03':'Minshawy_Murattal_128kbps',        // Minshawi  (FIX: sebelumnya "Minshawi_..." salah ketik → 404)
+    '04':'Hani_Rifai_192kbps',               // Hani Rifai
+    '05':'Maher_AlMuaiqly_64kbps',           // Maher Al Muaiqly (FIX: folder 128kbps tidak ada di server)
+    '06':'Husary_128kbps',                   // Mahmoud Khalil Al-Husary
+    '07':'Abdurrahmaan_As-Sudais_192kbps',   // Abdurrahman As-Sudais
+    '08':'Hudhaify_128kbps',                 // Ali Al-Hudhaify
+    '09':'Muhammad_Ayyoub_128kbps',          // Muhammad Ayyoub
+    '10':'Mohammad_al_Tablaway_128kbps',     // Mohammad Al-Tablaway
   };
   return map[q] || 'Alafasy_128kbps';
 }
@@ -343,28 +352,40 @@ function switchView(view){
   if(view === 'audio-surah')  renderAudioList();
   if(view === 'bookmark')     renderBookmarks();
 
+  // Hentikan sensor kompas saat keluar dari halaman kiblat
+  // supaya tidak ada listener "nyangkut" yang bikin jarum kacau saat dibuka lagi
+  if(view !== 'qiblat') stopCompassSensor();
+
   window.scrollTo({top:0, behavior:'smooth'});
   closeDrawer();
 }
 
 /* ── DRAWER ───────────────────────────────────────────────── */
-function setupDrawer(){
-  const hamburgerBtn = document.getElementById('hamburger-btn');
 
-if(hamburgerBtn){
-  hamburgerBtn.addEventListener('click', () => {
+function setupDrawer(){
+
+  const hamburgerBtn = document.getElementById('hamburger-btn');
+  const overlay = document.getElementById('overlay');
+  const drawerHome = document.getElementById('drawer-home');
+  const drawerSurah = document.getElementById('drawer-surah');
+  const drawerAudio = document.getElementById('drawer-audio');
+  const drawerBookmark = document.getElementById('drawer-bookmark');
+  const drawerSettings = document.getElementById('drawer-settings');
+
+  hamburgerBtn?.addEventListener('click', () => {
     document.getElementById('drawer')?.classList.toggle('active');
     document.getElementById('overlay')?.classList.toggle('active');
   });
-}
-  document.getElementById('overlay').addEventListener('click', closeDrawer);
 
-  document.getElementById('drawer-home').addEventListener('click',     () => switchView('home'));
-  document.getElementById('drawer-surah').addEventListener('click',    () => switchView('surah-list'));
-  document.getElementById('drawer-audio').addEventListener('click',    () => switchView('audio-surah'));
-  document.getElementById('drawer-bookmark').addEventListener('click', () => switchView('bookmark'));
-  document.getElementById('drawer-settings').addEventListener('click', () => switchView('settings'));
+  overlay?.addEventListener('click', closeDrawer);
+
+  drawerHome?.addEventListener('click', () => switchView('home'));
+  drawerSurah?.addEventListener('click', () => switchView('surah-list'));
+  drawerAudio?.addEventListener('click', () => switchView('audio-surah'));
+  drawerBookmark?.addEventListener('click', () => switchView('bookmark'));
+  drawerSettings?.addEventListener('click', () => switchView('settings'));
 }
+
 function closeDrawer(){
   document.getElementById('drawer').classList.remove('active');
   document.getElementById('overlay').classList.remove('active');
@@ -621,7 +642,7 @@ async function renderQiblat(lat, lon) {
     <!-- Compass -->
     <div class="qiblat-compass-wrap">
       <div class="qiblat-compass-card">
-        <p class="qiblat-label">Arahkan ke Kiblat</p>
+        <p class="qiblat-label" id="qiblat-status-label">Arahkan ke Kiblat</p>
 
         <div class="compass-outer">
           <!-- Static compass rose -->
@@ -653,7 +674,7 @@ async function renderQiblat(lat, lon) {
         </div>
 
         <div class="qiblat-deg-badge">${deg}° dari Utara</div>
-        <p class="qiblat-hint">Ujung hijau menunjuk ke arah Kiblat</p>
+        <p class="qiblat-hint" id="qiblat-hint-text">Ujung hijau menunjuk ke arah Kiblat</p>
       </div>
     </div>
 
@@ -691,7 +712,7 @@ async function renderQiblat(lat, lon) {
     <!-- Tip -->
     <div class="shalat-method" style="margin-top:12px">
       <span class="material-icons" style="font-size:14px">info_outline</span>
-      Untuk akurasi terbaik, jauhkan dari benda logam besar
+      Untuk akurasi terbaik, jauhkan dari benda logam besar &amp; kalibrasi kompas HP dengan gerakan angka 8
     </div>
   `;
 
@@ -699,9 +720,32 @@ async function renderQiblat(lat, lon) {
   startCompassSensor(deg);
 }
 
+/* ── SENSOR KOMPAS (FIXED) ────────────────────────────────────
+   Perbaikan dari versi sebelumnya:
+   1. Tidak lagi memasang 'deviceorientationabsolute' DAN
+      'deviceorientation' sekaligus tanpa kontrol — sebelumnya
+      kedua event ini saling rebutan update rotasi jarum di
+      Android sehingga jarum terlihat gemetar / muter-muter.
+      Sekarang: 'deviceorientationabsolute' jadi prioritas utama,
+      'deviceorientation' hanya dipakai sebagai fallback (atau utk
+      iOS yang punya webkitCompassHeading).
+   2. Listener lama selalu dilepas dulu sebelum pasang yang baru
+      (mencegah listener menumpuk tiap kali halaman kiblat dibuka).
+   3. Rotasi jarum dihitung lewat "jalur terpendek" supaya saat
+      heading melewati batas 0°/360° jarum tidak muter hampir
+      360° ke arah yang salah (bug utama penyebab jarum "muter-muter").
+   4. Ditambahkan smoothing (low-pass filter melingkar) supaya
+      noise kecil dari sensor tidak bikin jarum gemetar.
+   ───────────────────────────────────────────────────────────── */
+let _qiblatAbsoluteHandler = null;
+let _qiblatRelativeHandler = null;
+let _qiblatUsingAbsolute   = false;
+let _qiblatSmoothedHeading = null;
+let _qiblatLastRotation    = null;
+
 function startCompassSensor(staticDeg) {
   if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    // iOS 13+
+    // iOS 13+ wajib minta izin dulu
     DeviceOrientationEvent.requestPermission()
       .then(perm => { if (perm === 'granted') listenOrientation(staticDeg); })
       .catch(() => {});
@@ -711,30 +755,106 @@ function startCompassSensor(staticDeg) {
 }
 
 function listenOrientation(qiblaDeg) {
-  window.addEventListener('deviceorientationabsolute', e => handleOrientation(e, qiblaDeg), { once: false });
-  window.addEventListener('deviceorientation', e => handleOrientation(e, qiblaDeg), { once: false });
+  // Lepas listener lama dulu (jika halaman kiblat dibuka berkali-kali)
+  stopCompassSensor();
+
+  _qiblatUsingAbsolute   = false;
+  _qiblatSmoothedHeading = null;
+  _qiblatLastRotation    = null;
+
+  // Prioritas utama: heading absolut (akurat terhadap utara sebenarnya)
+  _qiblatAbsoluteHandler = e => {
+    _qiblatUsingAbsolute = true;
+    handleOrientation(e, qiblaDeg);
+  };
+  window.addEventListener('deviceorientationabsolute', _qiblatAbsoluteHandler, false);
+
+  // Fallback: deviceorientation biasa.
+  // - Di iOS, event ini yang membawa webkitCompassHeading (paling akurat di iOS).
+  // - Di Android, event ini diabaikan kalau 'deviceorientationabsolute' sudah aktif,
+  //   supaya tidak ada 2 sumber data yang rebutan mengatur jarum.
+  _qiblatRelativeHandler = e => {
+    if (typeof e.webkitCompassHeading === 'number') {
+      handleOrientation(e, qiblaDeg);
+      return;
+    }
+    if (_qiblatUsingAbsolute) return; // sudah ada sumber yang lebih akurat, skip
+    if (e.alpha === null || e.alpha === undefined) return;
+    handleOrientation(e, qiblaDeg);
+  };
+  window.addEventListener('deviceorientation', _qiblatRelativeHandler, false);
+}
+
+function stopCompassSensor() {
+  if (_qiblatAbsoluteHandler) {
+    window.removeEventListener('deviceorientationabsolute', _qiblatAbsoluteHandler);
+    _qiblatAbsoluteHandler = null;
+  }
+  if (_qiblatRelativeHandler) {
+    window.removeEventListener('deviceorientation', _qiblatRelativeHandler);
+    _qiblatRelativeHandler = null;
+  }
+  _qiblatUsingAbsolute   = false;
+  _qiblatSmoothedHeading = null;
+  _qiblatLastRotation    = null;
 }
 
 function handleOrientation(e, qiblaDeg) {
   const wrap = document.getElementById('compass-needle-wrap');
   if (!wrap) return;
 
-  let heading = 0;
+  let heading = null;
 
-  // iOS: webkitCompassHeading langsung = derajat dari Utara (paling akurat)
+  // iOS: webkitCompassHeading langsung = derajat dari Utara sebenarnya (paling akurat)
   if (typeof e.webkitCompassHeading === 'number') {
     heading = e.webkitCompassHeading;
   }
-  // Android: alpha = rotasi layar, dibalik jadi heading Utara
+  // Android: alpha = rotasi layar relatif Utara (saat 'absolute' true/terdeteksi)
   else if (e.alpha !== null && e.alpha !== undefined) {
     heading = (360 - e.alpha) % 360;
   }
 
-  // Jarum berputar ke: sudut kiblat - heading device
-  const rotation = (qiblaDeg - heading + 360) % 360;
+  if (heading === null) return;
 
-  wrap.style.transition = 'transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94)';
-  wrap.style.transform  = `rotate(${rotation}deg)`;
+  // 1) Smoothing melingkar — supaya jarum tidak gemetar karena noise sensor
+  if (_qiblatSmoothedHeading === null) {
+    _qiblatSmoothedHeading = heading;
+  } else {
+    let diff = heading - _qiblatSmoothedHeading;
+    diff = ((diff + 180) % 360 + 360) % 360 - 180; // selisih terpendek (-180..180)
+    _qiblatSmoothedHeading = (_qiblatSmoothedHeading + diff * 0.15 + 360) % 360;
+  }
+
+  const targetRotation = (qiblaDeg - _qiblatSmoothedHeading + 360) % 360;
+
+  // 2) Pilih jalur rotasi terpendek dari posisi terakhir
+  //    supaya jarum TIDAK muter hampir 360° saat melewati batas 0°/360°
+  if (_qiblatLastRotation === null) {
+    _qiblatLastRotation = targetRotation;
+  } else {
+    let delta = targetRotation - (_qiblatLastRotation % 360);
+    delta = ((delta + 180) % 360 + 360) % 360 - 180;
+    _qiblatLastRotation += delta;
+  }
+
+  wrap.style.transition = 'transform 0.25s linear';
+  wrap.style.transform  = `rotate(${_qiblatLastRotation}deg)`;
+
+  // Indikator visual saat sudah pas menghadap kiblat
+  const statusLabel = document.getElementById('qiblat-status-label');
+  const hintText     = document.getElementById('qiblat-hint-text');
+  const facingDiff = Math.abs(((qiblaDeg - _qiblatSmoothedHeading + 540) % 360) - 180);
+  if (statusLabel && hintText) {
+    if (facingDiff < 5) {
+      statusLabel.textContent = '✓ Sudah Menghadap Kiblat';
+      statusLabel.style.color = '#059669';
+      hintText.textContent = 'Posisi sudah tepat, pertahankan arah ini';
+    } else {
+      statusLabel.textContent = 'Arahkan ke Kiblat';
+      statusLabel.style.color = '';
+      hintText.textContent = 'Ujung hijau menunjuk ke arah Kiblat';
+    }
+  }
 }
 
 function getCardinalDirection(deg) {
@@ -951,6 +1071,15 @@ function setupAudioPlayer(){
 
   // Auto next
   audio.addEventListener('ended', handleAudioEnded);
+
+  // Kalau file qari ternyata gagal dimuat (404/jaringan), kasih tahu & lanjut ke ayat berikutnya
+  // supaya pemutaran tidak "diam" tanpa penjelasan saat satu file qari bermasalah.
+  audio.addEventListener('error', () => {
+    if(!audio.src) return;
+    console.warn('Audio gagal dimuat:', audio.src);
+    updatePlayerTitle('Audio tidak tersedia, lanjut ke ayat berikutnya...');
+    setTimeout(() => advanceToNext(), 800);
+  });
 }
 
 function handleAudioEnded(){

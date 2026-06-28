@@ -130,12 +130,15 @@ let repeatCount       = 1;
 let repeatDone        = 0;
 let rangeFrom         = 1;
 let rangeTo           = 1;
-let isRangeMode       = false;   // FIX: satu sumber kebenaran, tidak di-set ganda
+let isRangeMode       = false;
 let isPlaying         = false;
 let bookmarks         = JSON.parse(localStorage.getItem('assalam_bookmarks') || '[]');
 let settings          = JSON.parse(localStorage.getItem('assalam_settings') || '{}');
 let lastRead          = JSON.parse(localStorage.getItem('assalam_lastread') || 'null');
 let ayahCache         = {};
+
+// FIX: flag guard agar event 'error' audio tidak trigger saat src sengaja dikosongkan
+let _audioIntentionalStop = false;
 
 let audio;
 
@@ -176,7 +179,11 @@ function saveLastRead(sn, an){ lastRead={surahNum:sn,ayahNum:an}; localStorage.s
 
 /* ── INIT ─────────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', () => {
-  audio = document.getElementById('main-audio-element');
+
+if (!document.getElementById("main-audio-element")) {
+    return;
+}
+audio = document.getElementById("main-audio-element");
 
   // Splash
   setTimeout(() => {
@@ -195,43 +202,50 @@ window.addEventListener('DOMContentLoaded', () => {
   setupAudioPlayer();
   setupMediaSession();
 
-  // Shortcut cards
-  document.getElementById('quick-surah').addEventListener('click', () => switchView('surah-list'));
-  document.getElementById('quick-shalat').addEventListener('click', () => showShalatInfo());
-  document.getElementById('quick-qiblat').addEventListener('click', () => showQiblatInfo());
+  // Shortcut cards — semua pakai ?. agar tidak crash jika HTML versi lama
+  document.getElementById('quick-surah')?.addEventListener('click', () => switchView('surah-list'));
+  document.getElementById('quick-shalat')?.addEventListener('click', () => showShalatInfo());
+  document.getElementById('quick-qiblat')?.addEventListener('click', () => showQiblatInfo());
 
   // Settings listeners
-  document.getElementById('dark-mode-toggle').addEventListener('change', e => {
+  document.getElementById('dark-mode-toggle')?.addEventListener('change', e => {
     settings.dark = e.target.checked;
     document.body.classList.toggle('dark', settings.dark);
     saveSettings();
   });
-  document.getElementById('show-latin').addEventListener('change', e => {
+  document.getElementById('show-latin')?.addEventListener('change', e => {
     settings.showLatin = e.target.checked;
     saveSettings();
     if(currentAyahData.length) renderAyahList(currentAyahData);
   });
-  document.getElementById('translation-toggle').addEventListener('change', e => {
+  document.getElementById('translation-toggle')?.addEventListener('change', e => {
     settings.showTranslation = e.target.checked;
     saveSettings();
     if(currentAyahData.length) renderAyahList(currentAyahData);
   });
-  document.getElementById('font-size-select').addEventListener('change', e => {
+  document.getElementById('font-size-select')?.addEventListener('change', e => {
     settings.fontSize = e.target.value;
     saveSettings();
     document.querySelectorAll('.arabic-text').forEach(el => el.style.fontSize = settings.fontSize);
   });
-  document.getElementById('qari-select').addEventListener('change', e => {
+  document.getElementById('qari-select')?.addEventListener('change', e => {
     settings.qari = e.target.value;
     saveSettings();
     stopAudio();
   });
 
-  // Range play — satu tempat, tidak duplikat
-  document.getElementById('btn-play-range').addEventListener('click', playRange);
-  document.getElementById('btn-play-full-audio').addEventListener('click', () => {
+  // Tombol audio
+  document.getElementById('btn-play-range')?.addEventListener('click', playRange);
+  document.getElementById('btn-play-full-audio')?.addEventListener('click', () => {
     isRangeMode = false;
+    repeatCount = 1;
+    repeatDone  = 0;
     playAyah(0);
+  });
+
+  // Search surah
+  document.getElementById('search-surah-input')?.addEventListener('input', e => {
+    renderSurahList(e.target.value);
   });
 
   // Last read continue
@@ -278,7 +292,6 @@ function setupNav(){
   });
 }
 
-/* FIX: daftar view diselaraskan persis dengan id di HTML (hapus 'page-audio' yang tidak ada) */
 const ALL_VIEWS = ['home','surah-list','surah-detail','audio-surah','bookmark','settings','shalat','qiblat'];
 
 function switchView(view){
@@ -316,6 +329,12 @@ function switchView(view){
   if(view === 'audio-surah') renderAudioList();
   if(view === 'bookmark')    renderBookmarks();
 
+  // FIX: hentikan timer shalat saat keluar dari view shalat
+  if(view !== 'shalat' && window._shalatTimer){
+    clearInterval(window._shalatTimer);
+    window._shalatTimer = null;
+  }
+
   // Hentikan sensor kompas saat keluar halaman kiblat
   if(view !== 'qiblat') stopCompassSensor();
 
@@ -324,7 +343,6 @@ function switchView(view){
 }
 
 /* ── DRAWER ───────────────────────────────────────────────── */
-/* FIX: listener btn-play-range hanya ada di DOMContentLoaded, tidak diulang di sini */
 function setupDrawer(){
   const hamburgerBtn = document.getElementById('hamburger-btn');
   if(hamburgerBtn){
@@ -336,16 +354,16 @@ function setupDrawer(){
 
   document.getElementById('overlay')?.addEventListener('click', closeDrawer);
 
-  document.getElementById('drawer-home').addEventListener('click',     () => switchView('home'));
-  document.getElementById('drawer-surah').addEventListener('click',    () => switchView('surah-list'));
-  document.getElementById('drawer-audio').addEventListener('click',    () => switchView('audio-surah'));
-  document.getElementById('drawer-bookmark').addEventListener('click', () => switchView('bookmark'));
-  document.getElementById('drawer-settings').addEventListener('click', () => switchView('settings'));
+  document.getElementById('drawer-home')?.addEventListener('click',     () => switchView('home'));
+  document.getElementById('drawer-surah')?.addEventListener('click',    () => switchView('surah-list'));
+  document.getElementById('drawer-audio')?.addEventListener('click',    () => switchView('audio-surah'));
+  document.getElementById('drawer-bookmark')?.addEventListener('click', () => switchView('bookmark'));
+  document.getElementById('drawer-settings')?.addEventListener('click', () => switchView('settings'));
 }
 
 function closeDrawer(){
-  document.getElementById('drawer').classList.remove('active');
-  document.getElementById('overlay').classList.remove('active');
+  document.getElementById('drawer')?.classList.remove('active');
+  document.getElementById('overlay')?.classList.remove('active');
 }
 
 /* ── HOME ─────────────────────────────────────────────────── */
@@ -497,10 +515,17 @@ function startShalatCountdown(timeStr) {
   const el = document.getElementById('shalat-countdown');
   if(!el) return;
 
+  // FIX: selalu clear timer lama sebelum buat timer baru
   if(window._shalatTimer) clearInterval(window._shalatTimer);
 
   window._shalatTimer = setInterval(() => {
-    if(!document.getElementById('shalat-countdown')){ clearInterval(window._shalatTimer); return; }
+    // FIX: cek apakah elemen masih ada; jika tidak, hentikan timer otomatis
+    const countEl = document.getElementById('shalat-countdown');
+    if(!countEl){
+      clearInterval(window._shalatTimer);
+      window._shalatTimer = null;
+      return;
+    }
     const now    = new Date();
     let target   = new Date();
     target.setHours(targetH, targetM, 0, 0);
@@ -509,7 +534,7 @@ function startShalatCountdown(timeStr) {
     const hh     = String(Math.floor(diff / 3600000)).padStart(2,'0');
     const mm     = String(Math.floor((diff % 3600000) / 60000)).padStart(2,'0');
     const ss     = String(Math.floor((diff % 60000) / 1000)).padStart(2,'0');
-    el.textContent = `${hh}:${mm}:${ss}`;
+    countEl.textContent = `${hh}:${mm}:${ss}`;
   }, 1000);
 }
 
@@ -731,8 +756,9 @@ function handleOrientation(e, qiblaDeg) {
   }
 }
 
+// FIX: getCardinalDirection menggunakan nama lengkap bahasa Indonesia yang konsisten
 function getCardinalDirection(deg) {
-  const dirs = ['Utara','TL','Timur','TG','Selatan','BD','Barat','BL'];
+  const dirs = ['Utara','Timur Laut','Timur','Tenggara','Selatan','Barat Daya','Barat','Barat Laut'];
   return dirs[Math.round(deg / 45) % 8];
 }
 
@@ -782,10 +808,6 @@ function renderSurahList(filter=''){
     </div>`).join('');
 }
 
-document.getElementById('search-surah-input')?.addEventListener('input', e => {
-  renderSurahList(e.target.value);
-});
-
 /* ── AUDIO MUROTTAL LIST ──────────────────────────────────── */
 function renderAudioList(){
   const container = document.getElementById('surahAudioPage');
@@ -803,11 +825,12 @@ function renderAudioList(){
 
 function playFullSurah(surahNum){
   currentSurahNum = surahNum;
-  isRangeMode     = false;      // FIX: pastikan mode range nonaktif
+  isRangeMode     = false;
+  repeatCount     = 1;
+  repeatDone      = 0;
   fetchAyahData(surahNum).then(data => {
     currentAyahData  = data;
     currentAyahIndex = 0;
-    repeatCount = 1; repeatDone = 0;
     playAyah(0);
     showPlayer();
   });
@@ -926,39 +949,50 @@ function renderAyahList(data){
 
 /* ── AUDIO PLAYBACK ───────────────────────────────────────── */
 function setupAudioPlayer(){
-  audio.addEventListener('timeupdate', () => {
+
+    audio = document.getElementById("main-audio-element");
+
+  if(!audio){
+    console.warn("setupAudioPlayer: elemen #main-audio-element tidak ditemukan");
+    return;
+  }
+
+  audio.addEventListener("timeupdate", () => {
     if(!audio.duration) return;
     const pct = (audio.currentTime / audio.duration) * 100;
-    document.getElementById('progress-bar').value          = pct;
-    document.getElementById('prog-current').textContent   = fmtTime(audio.currentTime);
-    document.getElementById('prog-duration').textContent  = fmtTime(audio.duration);
+    const pb = document.getElementById("progress-bar");
+    const pc = document.getElementById("prog-current");
+    const pd = document.getElementById("prog-duration");
+    if(pb) pb.value = pct;
+    if(pc) pc.textContent = fmtTime(audio.currentTime);
+    if(pd) pd.textContent = fmtTime(audio.duration);
   });
 
-  document.getElementById('progress-bar').addEventListener('input', e => {
+  document.getElementById("progress-bar")?.addEventListener("input", e => {
     if(audio.duration) audio.currentTime = (e.target.value / 100) * audio.duration;
   });
 
-  document.getElementById('btn-play-pause').addEventListener('click', togglePlayPause);
-  document.getElementById('btn-prev-ayah').addEventListener('click', () => {
+  document.getElementById("btn-play-pause")?.addEventListener("click", togglePlayPause);
+  document.getElementById("btn-prev-ayah")?.addEventListener("click", () => {
     if(currentAyahIndex > 0) playAyah(currentAyahIndex - 1);
   });
-  document.getElementById('btn-next-ayah').addEventListener('click', advanceToNext);
+  document.getElementById("btn-next-ayah")?.addEventListener("click", advanceToNext);
 
-  audio.addEventListener('ended', handleAudioEnded);
-  audio.addEventListener('error', () => {
-    if(!audio.src) return;
-    console.warn('Audio gagal dimuat:', audio.src);
-    updatePlayerTitle('Audio tidak tersedia, lanjut ke ayat berikutnya...');
+  audio.addEventListener("ended", handleAudioEnded);
+
+  audio.addEventListener("error", () => {
+    if(_audioIntentionalStop) return;
+    if(!audio.src || audio.src === window.location.href) return;
+    console.warn("Audio gagal dimuat:", audio.src);
+    updatePlayerTitle("Audio tidak tersedia, lanjut ke ayat berikutnya...");
     setTimeout(() => advanceToNext(), 800);
   });
 }
 
-/* FIX: logika repeat selaras antara mode range dan mode per-ayah */
 function handleAudioEnded(){
   repeatDone++;
 
-  // Tentukan target repeat: range mode pakai repeatCount global, per-ayah pakai select
-  let thisRepeat = repeatCount; // default (range mode)
+  let thisRepeat = repeatCount; // range mode
   if(!isRangeMode){
     const sel = document.getElementById(`repeat-${currentAyahIndex}`);
     thisRepeat = sel ? parseInt(sel.value) : 1;
@@ -974,7 +1008,6 @@ function handleAudioEnded(){
   advanceToNext();
 }
 
-/* FIX: advanceToNext juga konsisten membaca rangeTo dari state */
 function advanceToNext(){
   if(!currentAyahData.length) return;
 
@@ -995,14 +1028,18 @@ function advanceToNext(){
 
 function autoLoadNextSurah(surahNum){
   currentSurahNum = surahNum;
-  updatePlayerTitle(`Memuat ${SURAH_DATA[surahNum-1].latin}...`);
+  const s = SURAH_DATA[surahNum-1];
+  updatePlayerTitle(`Memuat ${s.latin}...`);
+
+  // FIX: update semua info banner surah secara lengkap
+  document.getElementById('detail-banner-latin').textContent = s.latin;
+  document.getElementById('detail-banner-info').textContent  = `${s.arti} · ${s.ayat} Ayat · ${s.type}`;
+  document.getElementById('detail-banner-arab').textContent  = s.ar;
+
   fetchAyahData(surahNum).then(data => {
     currentAyahData  = data;
     currentAyahIndex = 0;
     repeatDone       = 0;
-    const s = SURAH_DATA[surahNum-1];
-    document.getElementById('detail-banner-latin').textContent = s.latin;
-    document.getElementById('detail-banner-arab').textContent  = s.ar;
     playAyah(0);
   });
 }
@@ -1018,6 +1055,7 @@ function playAyah(index){
   const url  = audioUrl(currentSurahNum, ayah.number);
   const s    = SURAH_DATA[currentSurahNum - 1];
 
+  _audioIntentionalStop = false;
   audio.src = url;
   audio.play().then(() => {
     isPlaying = true;
@@ -1032,12 +1070,11 @@ function playAyah(index){
   }).catch(err => console.warn('Play error:', err));
 }
 
-/* FIX: playRange — isRangeMode hanya di-set sekali */
 function playRange(){
   rangeFrom   = parseInt(document.getElementById('audio-from-ayah').value);
   rangeTo     = parseInt(document.getElementById('audio-to-ayah').value);
   repeatCount = parseInt(document.getElementById('audio-repeat-count').value);
-  isRangeMode = true;   // satu kali saja
+  isRangeMode = true;
   repeatDone  = 0;
 
   if(!currentAyahData.length){
@@ -1061,10 +1098,12 @@ function togglePlayPause(){
 }
 
 function stopAudio(){
+  _audioIntentionalStop = true;   // FIX: beri tahu error handler bahwa ini disengaja
   audio.pause();
   audio.src = '';
   isPlaying   = false;
-  isRangeMode = false;   // FIX: reset range mode saat stop
+  isRangeMode = false;
+  repeatCount = 1;
   repeatDone  = 0;
   updatePlayPauseBtn(false);
   clearHighlight();
@@ -1111,12 +1150,25 @@ function updateMediaSession(surahName, ayahNum){
 }
 
 /* ── BOOKMARKS ────────────────────────────────────────────── */
+// FIX: toggleBookmark hanya update DOM elemen yang berubah, bukan re-render seluruh list
+// agar posisi scroll user tidak hilang
 function toggleBookmark(surahNum, ayahNum, surahName){
   const idx = bookmarks.findIndex(b => b.surah===surahNum && b.ayah===ayahNum);
+  const isNowBookmarked = idx < 0;
+
   if(idx >= 0) bookmarks.splice(idx,1);
   else bookmarks.push({surah:surahNum, ayah:ayahNum, name:surahName, saved: new Date().toLocaleDateString('id-ID')});
   saveBookmarks();
-  if(currentAyahData.length) renderAyahList(currentAyahData);
+
+  // Update hanya tombol bookmark pada ayah yang bersangkutan
+  const ayahCard = document.querySelector(`.ayah-card[data-ayah="${ayahNum}"]`);
+  if(ayahCard){
+    const btn = ayahCard.querySelector('.ayah-btn');
+    if(btn){
+      btn.className = `ayah-btn ${isNowBookmarked ? 'bookmarked' : ''}`;
+      btn.querySelector('.material-icons').textContent = isNowBookmarked ? 'bookmark' : 'bookmark_border';
+    }
+  }
 }
 
 function renderBookmarks(){
@@ -1155,3 +1207,5 @@ window.playAyah       = playAyah;
 window.playFullSurah  = playFullSurah;
 window.toggleBookmark = toggleBookmark;
 window.deleteBookmark = deleteBookmark;
+window.showShalatInfo = showShalatInfo;
+window.showQiblatInfo = showQiblatInfo;

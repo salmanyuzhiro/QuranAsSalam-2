@@ -842,21 +842,96 @@ let simakState = {
 
 const SIMAK_TTS_LANG = 'id-ID';
 
-/* ── Inisialisasi Simak ───────────────────────────────────── */
-async function requestMicrophonePermission() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: true
-        });
+/* ── Kamus Respon Suara AI ────────────────────────────────── */
+const AI_RESPONSES = {
 
-        stream.getTracks().forEach(track => track.stop());
-        return true;
-    } catch (e) {
-        alert("Aplikasi memerlukan izin mikrofon.");
-        return false;
-    }
+  // === RESPON HAFALAN SALAH (kata tidak dikenal sama sekali) ===
+  hafalanSalah: [
+    'Salah. Hafalan belum tepat.',
+    'Kata tidak tepat, ulangi.',
+    'Bukan itu, coba lagi.',
+    'Salah. Ingat kembali hafalannya.',
+    'Hafalan kurang tepat.',
+  ],
+
+  // === RESPON MAKHRAJ SALAH (mirip tapi pengucapan kurang tepat) ===
+  makhrajSalah: [
+    'Salah. Makhraj kurang tepat.',
+    'Pengucapan kurang jelas, ulangi.',
+    'Makhraj huruf belum tepat.',
+    'Salah. Perhatikan makhraj hurufnya.',
+    'Huruf kurang jelas, perbaiki makhrajnya.',
+    'Salah. Keluarkan huruf dari makhraj yang benar.',
+  ],
+
+  // === RESPON MAD (panjang pendek) ===
+  madSalah: [
+    'Salah. Mad kurang panjang.',
+    'Panjang bacaan kurang tepat.',
+    'Mad belum sempurna, ulangi.',
+    'Salah. Perhatikan panjang madnya.',
+  ],
+};
+
+/* Ambil respon acak dari kategori */
+function aiSay(category) {
+  const list = AI_RESPONSES[category];
+  if (!list || !list.length) return;
+  const text = list[Math.floor(Math.random() * list.length)];
+  simakSpeak(text);
+  return text;
 }
 
+/* ── Deteksi Jenis Kesalahan ──────────────────────────────── */
+
+/*
+  Pasangan huruf yang sering tertukar akibat makhraj berdekatan.
+  Jika kata yang didengar mengandung salah satu pasangan ini
+  dibanding kata yang diharapkan, kemungkinan besar ini
+  kesalahan MAKHRAJ, bukan hafalan.
+*/
+const MAKHRAJ_PAIRS = [
+  ['ح','ه'], ['ح','خ'], ['ع','أ'], ['ع','ا'],
+  ['ذ','ز'], ['ذ','د'], ['ث','س'], ['ث','ت'],
+  ['ص','س'], ['ص','ز'], ['ض','د'], ['ض','ظ'],
+  ['ط','ت'], ['ظ','ز'], ['ظ','ذ'], ['ق','ك'],
+  ['غ','خ'], ['خ','ك'], ['ر','ل'], ['ن','م'],
+];
+
+function detectErrorType(expected, heard, similarity) {
+  const expNorm  = normalizeArabic(expected);
+  const heardNorm= normalizeArabic(heard);
+
+  // Jika kemiripan sangat tinggi (≥0.75) tapi tidak lolos threshold:
+  // kemungkinan makhraj salah (kata sangat mirip, hanya beda 1-2 huruf)
+  if (similarity >= 0.75) return 'makhraj';
+
+  // Cek apakah ada pertukaran huruf berdekatan makhraj
+  if (similarity >= 0.45) {
+    for (const [a, b] of MAKHRAJ_PAIRS) {
+      const expHas  = expNorm.includes(a)  || expNorm.includes(b);
+      const hrdHas  = heardNorm.includes(a) || heardNorm.includes(b);
+      if (expHas && hrdHas) return 'makhraj';
+    }
+  }
+
+  // Deteksi mad: jika kata yang diharapkan mengandung huruf mad
+  // dan kata yang didengar jauh lebih pendek (karakter lebih sedikit)
+  const madChars = ['ا','و','ي','ى'];
+  const hasMad   = madChars.some(c => expNorm.includes(c));
+  if (hasMad && heardNorm.length < expNorm.length * 0.7) return 'mad';
+
+  // Deteksi ghunnah: jika kata mengandung nun/mim tasydid
+  if (/[نم]/.test(expNorm) && similarity >= 0.5) return 'ghunnah';
+
+  // Jika sangat berbeda = hafalan salah
+  if (similarity < 0.4) return 'hafalan';
+
+  // Default: salah umum
+  return 'salah';
+}
+
+/* ── Inisialisasi Simak ───────────────────────────────────── */
 function initSimak() {
   // Populate surah select
   const sel = document.getElementById('simakSurahSelect');
@@ -873,14 +948,7 @@ function initSimak() {
     document.getElementById('simakAyatAkhir').value = s.ayat > 7 ? 7 : s.ayat;
   });
 
-  document.getElementById('simakBtnStart')
-    ?.addEventListener('click', async () => {
-
-        const izin = await requestMicrophonePermission();
-        if (!izin) return;
-
-        mulaiSimak();
-    });
+  document.getElementById('simakBtnStart')?.addEventListener('click', mulaiSimak);
   document.getElementById('simakBtnStop')?.addEventListener('click', hentikanSimak);
   document.getElementById('simakBtnPrev')?.addEventListener('click', () => simakPindahAyat(-1));
   document.getElementById('simakBtnNext')?.addEventListener('click', () => simakPindahAyat(1));
@@ -1047,9 +1115,14 @@ function startSimakRecognition() {
   rec.onstart = () => {
     simakState.isMicActive = true;
     simakSetOrbState('listening');
-    simakSetLabel('AI Mendengarkan...', 'Bacalah ayat dengan tartil dan jelas');
+
+    const ayah = simakState.ayahDataList[simakState.currentIdx];
+    const kata  = ayah?.words[simakState.currentWordIdx] || '';
+    simakSetLabel(
+      'AI Mendengarkan...',
+      kata ? `Lanjutkan dari: ${kata}` : 'Bacalah dengan tartil dan jelas'
+    );
     document.getElementById('simakLiveDot').classList.add('active');
-    simakAddLog('info', '🎙️ Mikrofon aktif — mulai baca hafalan Anda');
   };
 
   rec.onresult = (event) => {
@@ -1078,8 +1151,16 @@ function startSimakRecognition() {
     // Deteksi diam terlalu lama
     simakState.silenceTimer = setTimeout(() => {
       if (simakState.active && simakState.isMicActive) {
-        simakAddLog('warn', '⏱️ Terlalu lama berhenti... lanjutkan bacaan Anda');
-        simakSpeak('Lanjutkan bacaan');
+        const ayah = simakState.ayahDataList[simakState.currentIdx];
+        const kata  = ayah?.words[simakState.currentWordIdx] || '';
+        simakAddLog('warn',
+          `⏱️ Berhenti terlalu lama${kata ? ` — lanjutkan dari: <span class="simak-log-arab">${kata}</span>` : '...'}`
+        );
+        simakSetLabel('Mengapa berhenti?', 'Lanjutkan bacaan Anda');
+        aiSay('diam');
+        setTimeout(() => {
+          if (simakState.active) simakSetLabel('AI Mendengarkan...', 'Mulai baca kembali');
+        }, 2000);
       }
     }, getLevelTimeout());
   };
@@ -1111,54 +1192,57 @@ function startSimakRecognition() {
 function prosesBackaanAI(heard) {
   if (!simakState.active || !simakState.ayahDataList.length) return;
 
-  const curAyatIdx = simakState.currentIdx;
-  const ayah       = simakState.ayahDataList[curAyatIdx];
+  const curAyatIdx  = simakState.currentIdx;
+  const ayah        = simakState.ayahDataList[curAyatIdx];
   if (!ayah) return;
 
   const heardNorm   = normalizeArabic(heard);
   const heardWords  = heardNorm.split(/\s+/).filter(w => w.length > 0);
+  const threshold   = getLevelThreshold();
 
-  let matchCount  = 0;
-  let wrongWords  = [];
-  let wordPointer = simakState.currentWordIdx;
+  let wrongWords    = [];
+  let wordPointer   = simakState.currentWordIdx;
+  let adaKoreksi    = false; // flag: apakah ada koreksi suara yang sudah dikeluarkan
 
-  // Cocokkan kata per kata dari posisi saat ini
   for (let hi = 0; hi < heardWords.length; hi++) {
     const hw = heardWords[hi];
-
     if (wordPointer >= ayah.words.length) break;
 
-    const expected     = normalizeArabic(ayah.words[wordPointer]);
+    const expectedRaw  = ayah.words[wordPointer];
+    const expected     = normalizeArabic(expectedRaw);
     const similarity   = calcSimilarity(hw, expected);
-    const threshold    = getLevelThreshold();
 
     if (similarity >= threshold) {
-      // ✅ Kata benar
+      /* ─── ✅ KATA BENAR ─── */
       simakHighlightWord(curAyatIdx, wordPointer, 'correct');
-      matchCount++;
       wordPointer++;
       simakState.benar++;
+
     } else {
-      // ❌ Kata salah
+      /* ─── ❌ KATA SALAH ─── */
       simakHighlightWord(curAyatIdx, wordPointer, 'wrong');
-      wrongWords.push({
-        wordIdx  : wordPointer,
-        expected : ayah.words[wordPointer],
-        heard    : heard,
-        similarity
-      });
+
+      // Tentukan jenis kesalahan
+      const errorType = detectErrorType(expectedRaw, heard, similarity);
+
+      wrongWords.push({ wordIdx: wordPointer, expected: expectedRaw, heard, similarity, errorType });
       simakState.salah++;
       simakState.errors.push({
         ayah    : ayah.number,
         wordIdx : wordPointer,
-        expected: ayah.words[wordPointer],
-        heard   : heard,
-        type    : 'salah_kata'
+        expected: expectedRaw,
+        heard,
+        type    : errorType,
+        similarity,
       });
 
-      // Koreksi langsung
-      handleKoreksi(ayah.words[wordPointer], heard, ayah.number, wordPointer, similarity);
-      wordPointer++; // lanjut ke kata berikutnya
+      // ── Respon suara LANGSUNG (hanya sekali per proses, agar tidak tumpuk) ──
+      if (!adaKoreksi) {
+        handleKoreksi(expectedRaw, heard, ayah.number, wordPointer, similarity, errorType);
+        adaKoreksi = true;
+      }
+
+      wordPointer++;
     }
   }
 
@@ -1170,66 +1254,151 @@ function prosesBackaanAI(heard) {
     simakHighlightWord(curAyatIdx, wordPointer, 'current');
   }
 
-  // Jika semua kata ayat ini selesai
+  // Jika semua kata ayat selesai
   if (wordPointer >= ayah.words.length) {
     onAyatSelesai(curAyatIdx, wrongWords.length);
   }
 }
 
-/* ── Handle Koreksi AI ────────────────────────────────────── */
-function handleKoreksi(expected, heard, ayahNum, wordIdx, similarity) {
-  const level = simakState.level;
+/* ══════════════════════════════════════════════════════════
+   HANDLE KOREKSI AI — Respon suara + visual per jenis salah
+══════════════════════════════════════════════════════════ */
+function handleKoreksi(expected, heard, ayahNum, wordIdx, similarity, errorType) {
+  const level   = simakState.level;
+  const simak   = Math.round(similarity * 100);
+  const mode    = simakState.mode;
 
-  // Level guru: koreksi sangat ketat & detail
+  /* Aktifkan orb state 'wrong' sebentar, lalu kembali listening */
+  simakSetOrbState('wrong');
+  setTimeout(() => {
+    if (simakState.active) simakSetOrbState('listening');
+  }, 1800);
+
+  /* ── Tentukan teks log & kategori respon suara ── */
+  let logText    = '';
+  let voiceCat   = 'salah'; // kategori default dari AI_RESPONSES
+  let labelText  = '';
+  let subText    = '';
+
+  switch (errorType) {
+
+    case 'makhraj':
+      logText   = `🔤 Ayat ${ayahNum} kata ke-${wordIdx+1} — Makhraj salah (${simak}%): <span class="simak-log-arab">${expected}</span>`;
+      voiceCat  = 'makhrajSalah';
+      labelText = 'Makhraj Kurang Tepat';
+      subText   = `Kata: ${expected}`;
+      break;
+
+    case 'mad':
+      logText   = `📏 Ayat ${ayahNum} kata ke-${wordIdx+1} — Mad kurang panjang: <span class="simak-log-arab">${expected}</span>`;
+      voiceCat  = 'madSalah';
+      labelText = 'Mad Kurang Panjang';
+      subText   = `Kata: ${expected}`;
+      break;
+
+    case 'ghunnah':
+      logText   = `〰️ Ayat ${ayahNum} kata ke-${wordIdx+1} — Ghunnah kurang jelas: <span class="simak-log-arab">${expected}</span>`;
+      voiceCat  = 'ghunnahSalah';
+      labelText = 'Ghunnah Kurang Jelas';
+      subText   = `Kata: ${expected}`;
+      break;
+
+    case 'hafalan':
+      logText   = `📖 Ayat ${ayahNum} kata ke-${wordIdx+1} — Hafalan salah (${simak}%): <span class="simak-log-arab">${expected}</span>`;
+      voiceCat  = 'hafalanSalah';
+      labelText = 'Hafalan Salah';
+      subText   = `Yang benar: ${expected}`;
+      break;
+
+    default: // 'salah' umum atau similarity sedang
+      if (similarity >= 0.55) {
+        logText   = `⚠️ Ayat ${ayahNum} kata ke-${wordIdx+1} — Kurang tepat (${simak}%): <span class="simak-log-arab">${expected}</span>`;
+        voiceCat  = 'kurangTepat';
+        labelText = 'Kurang Tepat';
+      } else {
+        logText   = `❌ Ayat ${ayahNum} kata ke-${wordIdx+1} — Salah (${simak}%): <span class="simak-log-arab">${expected}</span>`;
+        voiceCat  = 'salah';
+        labelText = 'Salah';
+      }
+      subText = `Yang benar: ${expected}`;
+      break;
+  }
+
+  /* Mode Tajwid: paksa koreksi tajwid jika mode nya tajwid */
+  if (mode === 'tajwid' && errorType !== 'hafalan') {
+    voiceCat = 'tajwidSalah';
+    logText  = `📖 Tajwid — Ayat ${ayahNum} kata ke-${wordIdx+1}: <span class="simak-log-arab">${expected}</span>`;
+  }
+
+  /* Level Guru: koreksi sangat ketat, langsung bilang "Salah" untuk semua jenis */
   if (level === 'guru') {
-    simakAddLog('wrong',
-      `❌ Ayat ${ayahNum} kata ke-${wordIdx+1}: <span class="simak-log-arab">${expected}</span>`,
-      true);
-    simakSpeak('Salah. Ulangi lagi.');
-    return;
+    voiceCat = errorType === 'makhraj' ? 'makhrajSalah' :
+               errorType === 'hafalan' ? 'hafalanSalah' : 'salah';
   }
 
-  if (similarity < 0.3) {
-    // Sangat jauh — mungkin loncat ayat atau salah total
-    simakAddLog('wrong',
-      `❌ Kata tidak dikenali: <span class="simak-log-arab">${expected}</span>`,
-      true);
-    simakSpeak('Salah. Perbaiki.');
-  } else if (similarity < getLevelThreshold()) {
-    // Mirip tapi kurang tepat
-    simakAddLog('wrong',
-      `⚠️ Kurang tepat (${Math.round(similarity*100)}%): <span class="simak-log-arab">${expected}</span>`,
-      true);
-    simakSpeak('Kurang tepat. Ulangi.');
-  }
+  /* Tambah log */
+  simakAddLog('wrong', logText, true);
+
+  /* Update label orb sementara */
+  simakSetLabel(labelText, subText || heard);
+
+  /* ── UCAPKAN KOREKSI (respon suara) ── */
+  const spokenText = aiSay(voiceCat);
+
+  /* Reset label orb setelah suara selesai */
+  const estimatedDuration = spokenText ? (spokenText.length * 70) + 400 : 1500;
+  setTimeout(() => {
+    if (simakState.active) {
+      simakSetLabel('AI Mendengarkan...', 'Ulangi kata yang salah atau lanjutkan');
+    }
+  }, estimatedDuration);
 }
 
 /* ── Ayat Selesai ─────────────────────────────────────────── */
 function onAyatSelesai(ayatIdx, wrongCount) {
-  const ayah = simakState.ayahDataList[ayatIdx];
+  const ayah    = simakState.ayahDataList[ayatIdx];
+  const nextIdx = ayatIdx + 1;
+  const adaLagi = nextIdx < simakState.totalAyat;
 
   if (wrongCount === 0) {
+    /* ✅ Ayat sempurna — orb hijau + ucap benar */
     simakSetOrbState('correct');
-    simakAddLog('correct', `✅ Ayat ${ayah.number} — Benar! MasyaAllah 🌟`);
-    simakSpeak('Benar. Lanjut.');
-    setTimeout(() => simakSetOrbState('listening'), 1200);
+    simakSetLabel('MasyaAllah! Benar! ✅', `Ayat ${ayah.number} sempurna`);
+    simakAddLog('correct', `✅ Ayat ${ayah.number} — Sempurna! MasyaAllah 🌟`);
+
+    // Ucap benar, lalu lanjut / selesai
+    if (adaLagi) {
+      aiSay('benar');
+      setTimeout(() => aiSay('lanjut'), 900);
+    } else {
+      aiSay('benar');
+    }
+
+    setTimeout(() => {
+      if (simakState.active) simakSetOrbState('listening');
+    }, 1500);
+
   } else {
-    simakAddLog('warn', `📋 Ayat ${ayah.number} selesai — ${wrongCount} kesalahan`);
-    simakSpeak('Lanjut ayat berikutnya.');
+    /* ⚠️ Ayat selesai tapi ada kesalahan */
+    const pct = Math.round(((simakState.benar) / (simakState.benar + simakState.salah || 1)) * 100);
+    simakSetLabel(`Ayat ${ayah.number} Selesai`, `${wrongCount} kesalahan · ${pct}% akurasi`);
+    simakAddLog('warn', `📋 Ayat ${ayah.number} selesai — ${wrongCount} kata salah · Akurasi ${pct}%`);
+
+    if (adaLagi) aiSay('lanjut');
   }
 
   // Pindah ke ayat berikutnya
-  const nextIdx = ayatIdx + 1;
-  if (nextIdx < simakState.totalAyat) {
+  if (adaLagi) {
     setTimeout(() => {
       simakState.currentIdx     = nextIdx;
       simakState.currentWordIdx = 0;
       simakRenderAyat(nextIdx);
       simakHighlightWord(nextIdx, 0, 'current');
-    }, 1500);
+      simakSetLabel('AI Mendengarkan...', `Ayat ${simakState.ayahDataList[nextIdx].number} — mulai membaca`);
+    }, wrongCount === 0 ? 1800 : 1400);
   } else {
     // Semua ayat selesai!
-    setTimeout(() => selesaiSimak(), 2000);
+    setTimeout(() => selesaiSimak(), 2200);
   }
 }
 
@@ -1260,7 +1429,8 @@ function selesaiSimak() {
   document.getElementById('simakAiDot').classList.remove('active');
 
   simakSetOrbState('idle');
-  simakSpeak('Sesi selesai. Jazakallahu khayran.');
+  simakSetLabel('Sesi Selesai 🎉', 'Jazakallahu khayran');
+  aiSay('selesai');
 
   // Hitung skor
   const totalKata  = simakState.ayahDataList.reduce((s, a) => s + a.words.length, 0);
@@ -1388,26 +1558,65 @@ function simakUpdateStats() {
 }
 
 /* ── TTS Koreksi AI ───────────────────────────────────────── */
+/*
+  Fitur:
+  - Cancel TTS sebelumnya agar respon selalu fresh & cepat
+  - Pause recognition saat AI bicara, restart setelah selesai
+  - Mode kelancaran: AI diam kecuali untuk selesai/benar
+  - Rate lebih cepat untuk koreksi (lebih natural & < 500ms feel)
+*/
 function simakSpeak(text) {
-  if (!('speechSynthesis' in window)) return;
+  if (!text || !('speechSynthesis' in window)) return;
+
   const mode = simakState.mode;
 
-  // Mode kelancaran: AI diam lebih banyak
-  if (mode === 'kelancaran' && !text.includes('selesai')) return;
+  // Mode kelancaran: AI hanya bilang benar/selesai, tidak koreksi kata per kata
+  if (mode === 'kelancaran') {
+    const allowed = ['benar','selesai','sempurna','alhamdulillah','lanjut','selesai','sesi'];
+    if (!allowed.some(w => text.toLowerCase().includes(w))) return;
+  }
 
+  // Hentikan TTS yang sedang berjalan agar respon baru langsung keluar
   window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.lang  = SIMAK_TTS_LANG;
-  utt.rate  = 0.95;
-  utt.pitch = 1.0;
-  utt.volume= 1.0;
+
+  const utt    = new SpeechSynthesisUtterance(text);
+  utt.lang     = SIMAK_TTS_LANG;
+  utt.rate     = 1.05;   // sedikit lebih cepat → terasa lebih natural & responsif
+  utt.pitch    = 1.0;
+  utt.volume   = 1.0;
 
   // Pilih suara Indonesia jika tersedia
-  const voices = window.speechSynthesis.getVoices();
-  const idVoice = voices.find(v => v.lang.startsWith('id'));
-  if (idVoice) utt.voice = idVoice;
+  const trySpeak = () => {
+    const voices  = window.speechSynthesis.getVoices();
+    const idVoice = voices.find(v => v.lang === 'id-ID') ||
+                    voices.find(v => v.lang.startsWith('id'));
+    if (idVoice) utt.voice = idVoice;
 
-  window.speechSynthesis.speak(utt);
+    // Pause recognition sementara agar mic tidak menangkap suara AI
+    if (simakState.recognition && simakState.isMicActive) {
+      try { simakState.recognition.stop(); } catch(e) {}
+    }
+
+    utt.onend = () => {
+      // Restart recognition setelah AI selesai bicara (delay kecil)
+      if (simakState.active) {
+        setTimeout(() => startSimakRecognition(), 250);
+      }
+    };
+
+    utt.onerror = () => {
+      if (simakState.active) startSimakRecognition();
+    };
+
+    window.speechSynthesis.speak(utt);
+  };
+
+  // Tunggu voices kalau belum ready
+  if (window.speechSynthesis.getVoices().length === 0) {
+    window.speechSynthesis.onvoiceschanged = trySpeak;
+  } else {
+    trySpeak();
+  }
 }
 
 /* ── Orb State ────────────────────────────────────────────── */

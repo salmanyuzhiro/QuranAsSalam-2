@@ -1282,10 +1282,24 @@ function handleKoreksi(expected, heard, ayahNum, wordIdx, similarity, errorType)
 
   switch (errorType) {
 
+    case 'makhraj':
+      logText   = `🔤 Ayat ${ayahNum} kata ke-${wordIdx+1} — Makhraj salah (${simak}%): <span class="simak-log-arab">${expected}</span>`;
+      voiceCat  = 'makhrajSalah';
+      labelText = 'Makhraj Kurang Tepat';
+      subText   = `Kata: ${expected}`;
+      break;
+
     case 'mad':
       logText   = `📏 Ayat ${ayahNum} kata ke-${wordIdx+1} — Mad kurang panjang: <span class="simak-log-arab">${expected}</span>`;
       voiceCat  = 'madSalah';
       labelText = 'Mad Kurang Panjang';
+      subText   = `Kata: ${expected}`;
+      break;
+
+    case 'ghunnah':
+      logText   = `〰️ Ayat ${ayahNum} kata ke-${wordIdx+1} — Ghunnah kurang jelas: <span class="simak-log-arab">${expected}</span>`;
+      voiceCat  = 'ghunnahSalah';
+      labelText = 'Ghunnah Kurang Jelas';
       subText   = `Kata: ${expected}`;
       break;
 
@@ -1316,6 +1330,12 @@ function handleKoreksi(expected, heard, ayahNum, wordIdx, similarity, errorType)
     logText  = `📖 Tajwid — Ayat ${ayahNum} kata ke-${wordIdx+1}: <span class="simak-log-arab">${expected}</span>`;
   }
 
+  /* Level Guru: koreksi sangat ketat, langsung bilang "Salah" untuk semua jenis */
+  if (level === 'guru') {
+    voiceCat = errorType === 'makhraj' ? 'makhrajSalah' :
+               errorType === 'hafalan' ? 'hafalanSalah' : 'salah';
+  }
+
   /* Tambah log */
   simakAddLog('wrong', logText, true);
 
@@ -1341,6 +1361,18 @@ function onAyatSelesai(ayatIdx, wrongCount) {
   const adaLagi = nextIdx < simakState.totalAyat;
 
   if (wrongCount === 0) {
+    /* ✅ Ayat sempurna — orb hijau + ucap benar */
+    simakSetOrbState('correct');
+    simakSetLabel('MasyaAllah! Benar! ✅', `Ayat ${ayah.number} sempurna`);
+    simakAddLog('correct', `✅ Ayat ${ayah.number} — Sempurna! MasyaAllah 🌟`);
+
+    // Ucap benar, lalu lanjut / selesai
+    if (adaLagi) {
+      aiSay('benar');
+      setTimeout(() => aiSay('lanjut'), 900);
+    } else {
+      aiSay('benar');
+    }
 
     setTimeout(() => {
       if (simakState.active) simakSetOrbState('listening');

@@ -843,6 +843,20 @@ let simakState = {
 const SIMAK_TTS_LANG = 'id-ID';
 
 /* ── Inisialisasi Simak ───────────────────────────────────── */
+async function requestMicrophonePermission() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true
+        });
+
+        stream.getTracks().forEach(track => track.stop());
+        return true;
+    } catch (e) {
+        alert("Aplikasi memerlukan izin mikrofon.");
+        return false;
+    }
+}
+
 function initSimak() {
   // Populate surah select
   const sel = document.getElementById('simakSurahSelect');
@@ -859,7 +873,14 @@ function initSimak() {
     document.getElementById('simakAyatAkhir').value = s.ayat > 7 ? 7 : s.ayat;
   });
 
-  document.getElementById('simakBtnStart')?.addEventListener('click', mulaiSimak);
+  document.getElementById('simakBtnStart')
+    ?.addEventListener('click', async () => {
+
+        const izin = await requestMicrophonePermission();
+        if (!izin) return;
+
+        mulaiSimak();
+    });
   document.getElementById('simakBtnStop')?.addEventListener('click', hentikanSimak);
   document.getElementById('simakBtnPrev')?.addEventListener('click', () => simakPindahAyat(-1));
   document.getElementById('simakBtnNext')?.addEventListener('click', () => simakPindahAyat(1));

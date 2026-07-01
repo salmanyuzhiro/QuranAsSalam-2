@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#0f766e">
   <title>Al Qur'an As Salam</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./Style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Amiri+Quran&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="Style.css?v=1">
 </head>
 <body>
 
@@ -46,11 +46,12 @@
       <li id="drawer-home" class="active-menu"><span class="material-icons">home</span> Beranda</li>
       <li id="drawer-surah"><span class="material-icons">menu_book</span> Daftar Surah</li>
       <li id="drawer-audio"><span class="material-icons">volume_up</span> Audio Murottal</li>
+      <li id="drawer-simak"><span class="material-icons">record_voice_over</span> Simak Hafalan</li>
       <li id="drawer-bookmark"><span class="material-icons">bookmark</span> Markah Simpanan</li>
       <li id="drawer-settings"><span class="material-icons">settings</span> Setelan</li>
     </ul>
     <div class="drawer-footer">
-      <p>Versi 2.0 · As Salam</p>
+      <p>Versi 4.0 · As Salam AI</p>
     </div>
   </nav>
 
@@ -70,60 +71,53 @@
           <p class="hero-tagline">Dengan nama Allah Yang Maha Pengasih, Maha Penyayang</p>
         </div>
         <div class="hero-stats">
-          <div class="stat-item">
-            <span class="stat-num">114</span>
-            <span class="stat-label">Surah</span>
-          </div>
+          <div class="stat-item"><span class="stat-num">114</span><span class="stat-label">Surah</span></div>
           <div class="stat-divider"></div>
-          <div class="stat-item">
-            <span class="stat-num">6.236</span>
-            <span class="stat-label">Ayat</span>
-          </div>
+          <div class="stat-item"><span class="stat-num">6.236</span><span class="stat-label">Ayat</span></div>
           <div class="stat-divider"></div>
-          <div class="stat-item">
-            <span class="stat-num">30</span>
-            <span class="stat-label">Juz</span>
-          </div>
+          <div class="stat-item"><span class="stat-num">30</span><span class="stat-label">Juz</span></div>
         </div>
       </div>
 
       <div id="last-read-card" class="last-read-card hidden">
-        <div class="lr-icon-wrap">
-          <span class="material-icons">bookmark</span>
-        </div>
+        <div class="lr-icon-wrap"><span class="material-icons">bookmark</span></div>
         <div class="lr-info">
           <span class="lr-label">Terakhir Dibaca</span>
           <h4 id="lr-surah-name">—</h4>
           <p id="lr-ayah-info">Ayat —</p>
         </div>
         <button id="lr-continue-btn" class="lr-btn">
-          <span class="material-icons">play_arrow</span>
-          Lanjut
+          <span class="material-icons">play_arrow</span> Lanjut
         </button>
+      </div>
+
+      <!-- AI Guru Banner -->
+      <div class="ai-guru-banner" onclick="switchView('simak')">
+        <div class="ai-guru-banner-left">
+          <div class="ai-guru-orb-mini">
+            <span class="material-icons">record_voice_over</span>
+          </div>
+          <div>
+            <p class="ai-guru-banner-title">AI Guru Tahfizh <span class="ai-badge-new">BARU</span></p>
+            <p class="ai-guru-banner-sub">Simak & koreksi hafalan secara real-time</p>
+          </div>
+        </div>
+        <span class="material-icons" style="color:rgba(255,255,255,0.7)">arrow_forward_ios</span>
       </div>
 
       <div class="section-label">Menu Utama</div>
       <div class="quick-menu-grid">
         <div id="quick-surah" class="quick-card">
-          <div class="quick-icon-wrap green">
-            <span class="material-icons">menu_book</span>
-          </div>
-          <p class="quick-title">Al Qur'an</p>
-          <p class="quick-sub">114 Surah</p>
+          <div class="quick-icon-wrap green"><span class="material-icons">menu_book</span></div>
+          <p class="quick-title">Al Qur'an</p><p class="quick-sub">114 Surah</p>
         </div>
         <div id="quick-shalat" class="quick-card">
-          <div class="quick-icon-wrap blue">
-            <span class="material-icons">mosque</span>
-          </div>
-          <p class="quick-title">Jadwal Shalat</p>
-          <p class="quick-sub">5 Waktu</p>
+          <div class="quick-icon-wrap blue"><span class="material-icons">mosque</span></div>
+          <p class="quick-title">Jadwal Shalat</p><p class="quick-sub">5 Waktu</p>
         </div>
         <div id="quick-qiblat" class="quick-card">
-          <div class="quick-icon-wrap purple">
-            <span class="material-icons">explore</span>
-          </div>
-          <p class="quick-title">Arah Qiblat</p>
-          <p class="quick-sub">Kompas Digital</p>
+          <div class="quick-icon-wrap purple"><span class="material-icons">explore</span></div>
+          <p class="quick-title">Arah Qiblat</p><p class="quick-sub">Kompas Digital</p>
         </div>
       </div>
 
@@ -142,10 +136,7 @@
       <button class="back-button" onclick="switchView('home')">
         <span class="material-icons">arrow_back</span> Kembali
       </button>
-      <div class="page-title-bar">
-        <h2>Daftar Surah</h2>
-        <span>114 Surah</span>
-      </div>
+      <div class="page-title-bar"><h2>Daftar Surah</h2><span>114 Surah</span></div>
       <div class="search-box">
         <span class="material-icons">search</span>
         <input type="text" id="search-surah-input" placeholder="Cari nama surah atau arti...">
@@ -171,23 +162,14 @@
         </div>
         <div class="audio-range-box">
           <div class="range-row">
-            <div class="range-group">
-              <label>Dari Ayat</label>
-              <select id="audio-from-ayah"></select>
-            </div>
-            <div class="range-group">
-              <label>Sampai</label>
-              <select id="audio-to-ayah"></select>
-            </div>
+            <div class="range-group"><label>Dari Ayat</label><select id="audio-from-ayah"></select></div>
+            <div class="range-group"><label>Sampai</label><select id="audio-to-ayah"></select></div>
             <div class="range-group">
               <label>Ulangi</label>
               <select id="audio-repeat-count">
-                <option value="1">1x</option>
-                <option value="3">3x</option>
-                <option value="5">5x</option>
-                <option value="10">10x</option>
-                <option value="20">20x</option>
-                <option value="50">50x</option>
+                <option value="1">1x</option><option value="3">3x</option>
+                <option value="5">5x</option><option value="10">10x</option>
+                <option value="20">20x</option><option value="50">50x</option>
                 <option value="100">100x</option>
               </select>
             </div>
@@ -205,68 +187,258 @@
       <button class="back-button" onclick="switchView('home')">
         <span class="material-icons">arrow_back</span> Kembali
       </button>
-      <div class="page-title-bar">
-        <h2>Audio Murottal</h2>
-        <span>114 Surah</span>
-      </div>
+      <div class="page-title-bar"><h2>Audio Murottal</h2><span>114 Surah</span></div>
       <div id="surahAudioPage" class="list-container"></div>
     </section>
 
-    <!-- VIEW 5: BOOKMARK -->
-    <section id="bookmark-view" class="view-section hidden">
-      <div class="page-title-bar">
-        <h2>Markah Simpanan</h2>
+    <!-- ═══════════════════════════════════════
+         VIEW 5: SIMAK HAFALAN (AI GURU)
+    ═══════════════════════════════════════ -->
+    <section id="simak-view" class="view-section hidden">
+
+      <!-- Header Simak -->
+      <div class="simak-header">
+        <div class="simak-header-top">
+          <button class="back-button-inline" onclick="switchView('home')">
+            <span class="material-icons">arrow_back</span>
+          </button>
+          <div>
+            <h2 class="simak-title">AI Guru Tahfizh</h2>
+            <p class="simak-subtitle">Simak Hafalan Real-Time · v4.0</p>
+          </div>
+          <div class="simak-ai-dot" id="simakAiDot">
+            <span class="material-icons">record_voice_over</span>
+          </div>
+        </div>
       </div>
+
+      <!-- Setup Card -->
+      <div class="simak-setup-card" id="simakSetupCard">
+        <div class="simak-setup-title">
+          <span class="material-icons">tune</span>
+          Pengaturan Sesi Simak
+        </div>
+
+        <div class="simak-form-row">
+          <div class="simak-form-group">
+            <label class="simak-label">Pilih Surah</label>
+            <select class="simak-select" id="simakSurahSelect"></select>
+          </div>
+        </div>
+
+        <div class="simak-form-row two">
+          <div class="simak-form-group">
+            <label class="simak-label">Ayat Awal</label>
+            <input type="number" class="simak-input" id="simakAyatAwal" min="1" value="1">
+          </div>
+          <div class="simak-form-group">
+            <label class="simak-label">Ayat Akhir</label>
+            <input type="number" class="simak-input" id="simakAyatAkhir" min="1" value="7">
+          </div>
+        </div>
+
+        <div class="simak-form-row two">
+          <div class="simak-form-group">
+            <label class="simak-label">Mode Simak</label>
+            <select class="simak-select" id="simakMode">
+              <option value="hafalan">🎯 Simak Hafalan</option>
+              <option value="tajwid">📖 Simak Tajwid</option>
+              <option value="kelancaran">⚡ Simak Kelancaran</option>
+              <option value="lengkap">✨ Simak Lengkap</option>
+            </select>
+          </div>
+          <div class="simak-form-group">
+            <label class="simak-label">Tingkat</label>
+            <select class="simak-select" id="simakLevel">
+              <option value="pemula">🌱 Pemula</option>
+              <option value="menengah">📗 Menengah</option>
+              <option value="mahir">🌟 Mahir</option>
+              <option value="guru">👑 Guru</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="simak-btn-start" id="simakBtnStart">
+          <span class="material-icons">mic</span>
+          Mulai Simak Hafalan
+        </button>
+      </div>
+
+      <!-- AI Listening Panel (tampil saat sesi aktif) -->
+      <div class="simak-session-panel hidden" id="simakSessionPanel">
+
+        <!-- Orb AI -->
+        <div class="simak-orb-wrap">
+          <div class="simak-orb idle" id="simakOrb">
+            <div class="sorb-ring r1"></div>
+            <div class="sorb-ring r2"></div>
+            <div class="sorb-ring r3"></div>
+            <div class="sorb-inner">
+              <span class="material-icons" id="simakOrbIcon">mic</span>
+            </div>
+          </div>
+          <p class="simak-orb-label" id="simakOrbLabel">AI Mendengarkan...</p>
+          <p class="simak-orb-sub" id="simakOrbSub">Mulai baca hafalan Anda</p>
+        </div>
+
+        <!-- Ayat yang sedang disimak -->
+        <div class="simak-ayat-box" id="simakAyatBox">
+          <div class="simak-ayat-nav">
+            <button class="simak-nav-btn" id="simakBtnPrev">
+              <span class="material-icons">chevron_left</span>
+            </button>
+            <span class="simak-ayat-counter" id="simakAyatCounter">Ayat 1</span>
+            <button class="simak-nav-btn" id="simakBtnNext">
+              <span class="material-icons">chevron_right</span>
+            </button>
+          </div>
+          <div class="simak-arabic-text" id="simakArabicText" dir="rtl">
+            <!-- Kata-kata Arab dengan highlight -->
+          </div>
+          <div class="simak-translation" id="simakTranslation"></div>
+        </div>
+
+        <!-- Transcript: yang didengar AI -->
+        <div class="simak-transcript-box">
+          <div class="simak-transcript-label">
+            <span class="material-icons">hearing</span>
+            Yang Didengar AI
+            <span class="simak-live-dot" id="simakLiveDot"></span>
+          </div>
+          <div class="simak-transcript-text" id="simakTranscriptText" dir="rtl">
+            <span class="simak-transcript-placeholder">Suara Anda akan muncul di sini...</span>
+          </div>
+        </div>
+
+        <!-- Log Koreksi -->
+        <div class="simak-log-box" id="simakLogBox">
+          <div class="simak-log-header">
+            <span class="material-icons">chat_bubble_outline</span>
+            Log Koreksi AI
+          </div>
+          <div class="simak-log-body" id="simakLogBody">
+            <div class="simak-log-empty">Log koreksi akan muncul di sini saat sesi berjalan.</div>
+          </div>
+        </div>
+
+        <!-- Stats sesi -->
+        <div class="simak-stats-row">
+          <div class="simak-stat">
+            <span class="simak-stat-val" id="sstatAyat">0/0</span>
+            <span class="simak-stat-lbl">Ayat</span>
+          </div>
+          <div class="simak-stat">
+            <span class="simak-stat-val green" id="sstatBenar">0</span>
+            <span class="simak-stat-lbl">Benar</span>
+          </div>
+          <div class="simak-stat">
+            <span class="simak-stat-val red" id="sstatSalah">0</span>
+            <span class="simak-stat-lbl">Kesalahan</span>
+          </div>
+          <div class="simak-stat">
+            <span class="simak-stat-val" id="sstatTimer">00:00</span>
+            <span class="simak-stat-lbl">Waktu</span>
+          </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="simak-progress-wrap">
+          <div class="simak-progress-bar">
+            <div class="simak-progress-fill" id="simakProgressFill" style="width:0%"></div>
+          </div>
+          <span class="simak-progress-pct" id="simakProgressPct">0%</span>
+        </div>
+
+        <!-- Stop button -->
+        <button class="simak-btn-stop" id="simakBtnStop">
+          <span class="material-icons">stop_circle</span>
+          Hentikan Sesi
+        </button>
+      </div>
+
+      <!-- Laporan Akhir -->
+      <div class="simak-report-panel hidden" id="simakReportPanel">
+        <div class="simak-report-header">
+          <span class="material-icons">emoji_events</span>
+          Laporan Sesi Hafalan
+        </div>
+
+        <!-- Score Circle -->
+        <div class="simak-score-wrap">
+          <div class="simak-score-circle">
+            <svg viewBox="0 0 120 120" width="140" height="140">
+              <circle cx="60" cy="60" r="50" fill="none" stroke="#d1fae5" stroke-width="10"/>
+              <circle cx="60" cy="60" r="50" fill="none" stroke="#059669" stroke-width="10"
+                      stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314"
+                      id="simakScoreArc" transform="rotate(-90 60 60)"/>
+            </svg>
+            <div class="simak-score-num" id="simakScoreNum">—</div>
+          </div>
+          <div class="simak-score-grade" id="simakScoreGrade">—</div>
+        </div>
+
+        <div class="simak-report-grid" id="simakReportGrid"></div>
+
+        <!-- Daftar kesalahan -->
+        <div class="simak-error-section" id="simakErrorSection"></div>
+
+        <!-- Riwayat chart mini -->
+        <div class="simak-history-section" id="simakHistorySection">
+          <div class="simak-history-title">
+            <span class="material-icons">history</span>
+            Riwayat Latihan
+          </div>
+          <div id="simakHistoryList"></div>
+        </div>
+
+        <button class="simak-btn-new" onclick="resetSimakSession()">
+          <span class="material-icons">refresh</span>
+          Sesi Baru
+        </button>
+      </div>
+
+      <!-- Riwayat (tampil saat belum ada sesi aktif) -->
+      <div class="simak-history-card" id="simakHistoryCard">
+        <div class="simak-history-card-title">
+          <span class="material-icons">history</span>
+          Riwayat Latihan Terakhir
+        </div>
+        <div id="simakHistoryPreview"></div>
+      </div>
+
+    </section>
+    <!-- END VIEW SIMAK -->
+
+    <!-- VIEW 6: BOOKMARK -->
+    <section id="bookmark-view" class="view-section hidden">
+      <div class="page-title-bar"><h2>Markah Simpanan</h2></div>
       <div id="bookmarkPage" class="list-container"></div>
     </section>
 
-    <!-- VIEW 6: SETTINGS -->
+    <!-- VIEW 7: SETTINGS -->
     <section id="settings-view" class="view-section hidden">
       <button class="back-button" onclick="switchView('home')">
         <span class="material-icons">arrow_back</span> Kembali
       </button>
-      <div class="page-title-bar">
-        <h2>Setelan</h2>
-      </div>
+      <div class="page-title-bar"><h2>Setelan</h2></div>
       <div class="settings-card">
         <div class="setting-item">
-          <div class="setting-info">
-            <h4>Mode Gelap</h4>
-            <p>Ubah tampilan menjadi gelap</p>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="dark-mode-toggle">
-            <span class="slider round"></span>
-          </label>
+          <div class="setting-info"><h4>Mode Gelap</h4><p>Ubah tampilan menjadi gelap</p></div>
+          <label class="switch"><input type="checkbox" id="dark-mode-toggle"><span class="slider round"></span></label>
         </div>
         <hr>
         <div class="setting-item">
-          <div class="setting-info">
-            <h4>Tampilkan Latin</h4>
-            <p>Tampilkan atau sembunyikan transliterasi</p>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="show-latin" checked>
-            <span class="slider round"></span>
-          </label>
+          <div class="setting-info"><h4>Tampilkan Latin</h4><p>Tampilkan atau sembunyikan transliterasi</p></div>
+          <label class="switch"><input type="checkbox" id="show-latin" checked><span class="slider round"></span></label>
         </div>
         <hr>
         <div class="setting-item">
-          <div class="setting-info">
-            <h4>Tampilkan Terjemahan</h4>
-            <p>Munculkan arti ayat bahasa Indonesia</p>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="translation-toggle" checked>
-            <span class="slider round"></span>
-          </label>
+          <div class="setting-info"><h4>Tampilkan Terjemahan</h4><p>Munculkan arti ayat bahasa Indonesia</p></div>
+          <label class="switch"><input type="checkbox" id="translation-toggle" checked><span class="slider round"></span></label>
         </div>
         <hr>
         <div class="setting-item">
-          <div class="setting-info">
-            <h4>Ukuran Font Arab</h4>
-            <p>Sesuaikan besar teks Arab</p>
-          </div>
+          <div class="setting-info"><h4>Ukuran Font Arab</h4><p>Sesuaikan besar teks Arab</p></div>
           <select id="font-size-select" class="styled-select">
             <option value="24px">Kecil</option>
             <option value="28px" selected>Sedang</option>
@@ -276,10 +448,7 @@
         </div>
         <hr>
         <div class="setting-item">
-          <div class="setting-info">
-            <h4>Pilih Qari</h4>
-            <p>Pilih suara murottal favorit</p>
-          </div>
+          <div class="setting-info"><h4>Pilih Qari</h4><p>Pilih suara murottal favorit</p></div>
           <select id="qari-select" class="styled-select">
             <option value="01">Mishari Alafasy</option>
             <option value="02">Abdul Basit</option>
@@ -296,25 +465,17 @@
       </div>
     </section>
 
-    <!-- VIEW 7: JADWAL SHALAT -->
+    <!-- VIEW 8: JADWAL SHALAT -->
     <section id="shalat-view" class="view-section hidden">
-      <button class="back-button" onclick="switchView('home')">
-        <span class="material-icons">arrow_back</span> Kembali
-      </button>
-      <div class="page-title-bar">
-        <h2>Jadwal Shalat</h2>
-      </div>
+      <button class="back-button" onclick="switchView('home')"><span class="material-icons">arrow_back</span> Kembali</button>
+      <div class="page-title-bar"><h2>Jadwal Shalat</h2></div>
       <div id="shalat-content"></div>
     </section>
 
-    <!-- VIEW 8: ARAH KIBLAT -->
+    <!-- VIEW 9: ARAH KIBLAT -->
     <section id="qiblat-view" class="view-section hidden">
-      <button class="back-button" onclick="switchView('home')">
-        <span class="material-icons">arrow_back</span> Kembali
-      </button>
-      <div class="page-title-bar">
-        <h2>Arah Kiblat</h2>
-      </div>
+      <button class="back-button" onclick="switchView('home')"><span class="material-icons">arrow_back</span> Kembali</button>
+      <div class="page-title-bar"><h2>Arah Kiblat</h2></div>
       <div id="qiblat-content"></div>
     </section>
 
@@ -349,27 +510,25 @@
   <!-- BOTTOM NAVIGATION -->
   <nav class="bottom-nav">
     <a href="#" id="nav-home" class="active">
-      <span class="material-icons">home</span>
-      <span>Beranda</span>
+      <span class="material-icons">home</span><span>Beranda</span>
     </a>
     <a href="#" id="nav-surah">
-      <span class="material-icons">menu_book</span>
-      <span>Surah</span>
+      <span class="material-icons">menu_book</span><span>Surah</span>
     </a>
     <a href="#" id="nav-audio">
-      <span class="material-icons">volume_up</span>
-      <span>Audio</span>
+      <span class="material-icons">volume_up</span><span>Audio</span>
+    </a>
+    <a href="#" id="nav-simak" class="nav-simak-special">
+      <span class="material-icons">record_voice_over</span><span>Simak</span>
     </a>
     <a href="#" id="nav-bookmark">
-      <span class="material-icons">bookmark</span>
-      <span>Simpan</span>
+      <span class="material-icons">bookmark</span><span>Simpan</span>
     </a>
     <a href="#" id="nav-settings">
-      <span class="material-icons">settings</span>
-      <span>Setelan</span>
+      <span class="material-icons">settings</span><span>Setelan</span>
     </a>
   </nav>
 
-  <script src="script.js?v=1782650957"></script>
+  <script src="script.js?v=4000000000"></script>
 </body>
 </html>

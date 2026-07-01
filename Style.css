@@ -1075,3 +1075,619 @@ body.dark .compass-outer {
   border-color: var(--border);
   box-shadow: 0 0 0 6px var(--card), 0 0 0 8px var(--border), 0 8px 32px rgba(0,0,0,0.4);
 }
+/* ============================================================
+   SIMAK HAFALAN — AI Guru Tahfizh v4.0
+   Tambahan style.css
+   ============================================================ */
+
+/* ── AI GURU BANNER (Beranda) ──────────────────────────────── */
+.ai-guru-banner {
+  background: linear-gradient(135deg, #064e3b 0%, #059669 60%, #34d399 100%);
+  border-radius: 20px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  cursor: pointer;
+  box-shadow: 0 8px 28px rgba(6,78,59,0.35);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s;
+}
+.ai-guru-banner:active { transform: scale(0.98); }
+.ai-guru-banner::before {
+  content:'';
+  position:absolute;
+  inset:0;
+  background: radial-gradient(circle at 85% 30%, rgba(255,255,255,0.12) 0%, transparent 55%);
+  pointer-events:none;
+}
+.ai-guru-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  z-index: 1;
+}
+.ai-guru-orb-mini {
+  width: 46px; height: 46px; min-width: 46px;
+  background: rgba(255,255,255,0.15);
+  border: 1.5px solid rgba(255,255,255,0.3);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.ai-guru-orb-mini .material-icons { color: #fff; font-size: 24px; }
+.ai-guru-banner-title {
+  font-size: 15px; font-weight: 800; color: #fff;
+  display: flex; align-items: center; gap: 8px;
+}
+.ai-badge-new {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.8px;
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+  padding: 2px 7px; border-radius: 8px;
+  text-transform: uppercase;
+}
+.ai-guru-banner-sub { font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 2px; }
+
+/* ── BOTTOM NAV: Simak special ─────────────────────────────── */
+.nav-simak-special { position: relative; }
+.nav-simak-special .material-icons {
+  color: var(--primary);
+  background: var(--g100);
+  border-radius: 12px;
+  padding: 4px 10px;
+}
+.nav-simak-special.active .material-icons {
+  background: var(--primary);
+  color: white !important;
+}
+body.dark .nav-simak-special .material-icons { background: var(--g900); }
+
+/* ══════════════════════════════════════════════
+   SIMAK HAFALAN VIEW
+══════════════════════════════════════════════ */
+
+/* Header */
+.simak-header {
+  background: linear-gradient(145deg, #064e3b, #047857);
+  border-radius: 24px;
+  padding: 18px 18px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 28px rgba(6,78,59,0.3);
+  position: relative;
+  overflow: hidden;
+}
+.simak-header::before {
+  content:'';
+  position:absolute; inset:0;
+  background: radial-gradient(circle at 90% 20%, rgba(52,211,153,0.2) 0%, transparent 55%);
+  pointer-events:none;
+}
+.simak-header-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  z-index: 2;
+}
+.back-button-inline {
+  background: rgba(255,255,255,0.15);
+  border: none; color: white;
+  width: 36px; height: 36px; min-width: 36px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+}
+.simak-title { font-size: 20px; font-weight: 800; color: #fff; }
+.simak-subtitle { font-size: 11px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+.simak-ai-dot {
+  margin-left: auto;
+  width: 42px; height: 42px;
+  background: rgba(255,255,255,0.15);
+  border: 1.5px solid rgba(255,255,255,0.3);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.simak-ai-dot .material-icons { color: #fff; font-size: 22px; }
+.simak-ai-dot.active {
+  background: rgba(52,211,153,0.25);
+  border-color: rgba(52,211,153,0.5);
+  animation: simakDotPulse 1.5s ease-in-out infinite;
+}
+@keyframes simakDotPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(52,211,153,0.4); }
+  50%      { box-shadow: 0 0 0 8px rgba(52,211,153,0); }
+}
+
+/* Setup Card */
+.simak-setup-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 18px;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 16px var(--shadow);
+}
+.simak-setup-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase; letter-spacing: 0.6px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.simak-setup-title .material-icons { font-size: 16px; }
+
+.simak-form-row { margin-bottom: 12px; }
+.simak-form-row.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.simak-form-group { display: flex; flex-direction: column; gap: 5px; }
+.simak-label {
+  font-size: 10px; font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.simak-select, .simak-input {
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-size: 13px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+.simak-select:focus, .simak-input:focus { border-color: var(--primary); }
+
+.simak-btn-start {
+  width: 100%; margin-top: 6px;
+  background: linear-gradient(135deg, var(--g800), var(--g600));
+  color: white; border: none;
+  border-radius: 14px; padding: 14px;
+  font-size: 15px; font-weight: 800;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  box-shadow: 0 6px 20px rgba(6,78,59,0.35);
+  transition: opacity 0.2s, transform 0.15s;
+  letter-spacing: 0.3px;
+}
+.simak-btn-start:active { transform: scale(0.97); }
+.simak-btn-start .material-icons { font-size: 22px; }
+
+/* ── SESSION PANEL ─────────────────────────────────────────── */
+.simak-session-panel { display: flex; flex-direction: column; gap: 14px; }
+
+/* Orb */
+.simak-orb-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 24px 16px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 4px 16px var(--shadow);
+  gap: 10px;
+}
+.simak-orb {
+  position: relative;
+  width: 100px; height: 100px;
+  display: flex; align-items: center; justify-content: center;
+}
+.sorb-ring {
+  position: absolute; border-radius: 50%;
+  border: 2px solid var(--g500);
+  opacity: 0;
+}
+.sorb-ring.r1 { width: 100px; height: 100px; }
+.sorb-ring.r2 { width:  78px; height:  78px; }
+.sorb-ring.r3 { width:  58px; height:  58px; }
+.sorb-inner {
+  width: 60px; height: 60px;
+  background: var(--g900);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1;
+  transition: background 0.4s, box-shadow 0.4s;
+  box-shadow: 0 0 0 4px rgba(6,78,59,0.15);
+}
+.sorb-inner .material-icons { color: var(--g300); font-size: 26px; }
+
+/* orb states */
+.simak-orb.idle .sorb-ring {
+  animation: sOrbIdle 2.5s ease-out infinite;
+  opacity: 0.3;
+}
+.simak-orb.idle .r2 { animation-delay: 0.5s; }
+.simak-orb.idle .r3 { animation-delay: 1s; }
+
+.simak-orb.listening .sorb-ring {
+  animation: sOrbListen 0.9s ease-out infinite;
+}
+.simak-orb.listening .r1 { opacity: 0.55; }
+.simak-orb.listening .r2 { opacity: 0.4; animation-delay: 0.2s; }
+.simak-orb.listening .r3 { opacity: 0.65; animation-delay: 0.4s; }
+.simak-orb.listening .sorb-inner { background: var(--g600); box-shadow: 0 0 0 6px rgba(5,150,105,0.25); }
+.simak-orb.listening .sorb-inner .material-icons { color: #fff; }
+
+.simak-orb.correct .sorb-ring { border-color: #16a34a; animation: sOrbCorrect 0.6s ease-out 1; }
+.simak-orb.correct .sorb-inner { background: #16a34a; }
+.simak-orb.correct .sorb-inner .material-icons { color: #fff; }
+
+.simak-orb.wrong .sorb-ring { border-color: #dc2626; animation: sOrbWrong 0.5s ease-out 1; }
+.simak-orb.wrong .sorb-inner { background: #dc2626; }
+.simak-orb.wrong .sorb-inner .material-icons { color: #fff; }
+
+.simak-orb.thinking .sorb-ring { border-color: #d97706; animation: sOrbListen 0.8s ease-out infinite; opacity: 0.4; }
+.simak-orb.thinking .sorb-inner { background: #d97706; }
+.simak-orb.thinking .sorb-inner .material-icons { color: #fff; }
+
+@keyframes sOrbIdle {
+  0%   { transform: scale(1);    opacity: 0.3; }
+  50%  { transform: scale(1.08); opacity: 0.15; }
+  100% { transform: scale(1);    opacity: 0.3; }
+}
+@keyframes sOrbListen {
+  0%   { transform: scale(0.9);  opacity: 0.7; }
+  60%  { transform: scale(1.18); opacity: 0; }
+  100% { transform: scale(0.9);  opacity: 0; }
+}
+@keyframes sOrbCorrect {
+  0%   { transform: scale(0.9);  opacity: 0.9; }
+  100% { transform: scale(1.4);  opacity: 0; }
+}
+@keyframes sOrbWrong {
+  0%,100% { transform: translateX(0); }
+  20%      { transform: translateX(-5px); }
+  40%      { transform: translateX(5px); }
+  60%      { transform: translateX(-3px); }
+  80%      { transform: translateX(3px); }
+}
+
+.simak-orb-label {
+  font-size: 15px; font-weight: 800;
+  color: var(--text); text-align: center;
+}
+.simak-orb-sub {
+  font-size: 12px; color: var(--text-muted); text-align: center;
+  line-height: 1.5;
+}
+
+/* Ayat Box */
+.simak-ayat-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px var(--shadow);
+}
+.simak-ayat-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px;
+  background: linear-gradient(90deg, var(--g900), var(--g700));
+}
+.simak-nav-btn {
+  width: 30px; height: 30px;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px; color: white;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background 0.15s;
+}
+.simak-nav-btn:hover { background: rgba(255,255,255,0.25); }
+.simak-nav-btn .material-icons { font-size: 18px; }
+.simak-ayat-counter {
+  font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.9);
+}
+.simak-arabic-text {
+  font-family: 'Amiri Quran', 'Amiri', serif;
+  font-size: 26px;
+  line-height: 2.2;
+  text-align: right;
+  padding: 18px 18px 12px;
+  color: var(--text);
+  word-spacing: 6px;
+  min-height: 80px;
+}
+.simak-translation {
+  font-size: 12px; line-height: 1.65;
+  color: var(--text-muted);
+  padding: 0 16px 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+/* Kata highlight */
+.sw-word {
+  display: inline;
+  padding: 1px 3px;
+  border-radius: 4px;
+  transition: background 0.25s, color 0.25s;
+  cursor: default;
+}
+.sw-word.pending  { color: var(--text); }
+.sw-word.current  { background: #fef3c7; color: #92400e; border-bottom: 2px solid #d97706; }
+.sw-word.correct  { background: #d1fae5; color: #065f46; }
+.sw-word.wrong    { background: #fee2e2; color: #991b1b; text-decoration: line-through; }
+body.dark .sw-word.current { background: #451a03; color: #fcd34d; }
+body.dark .sw-word.correct { background: rgba(6,95,70,0.3); color: var(--g300); }
+body.dark .sw-word.wrong   { background: rgba(127,29,29,0.3); color: #fca5a5; }
+
+/* Transcript */
+.simak-transcript-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+.simak-transcript-label {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.simak-transcript-label .material-icons { font-size: 15px; }
+.simak-live-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #dc2626;
+  margin-left: auto;
+  display: none;
+  animation: blinkDot 1s steps(1) infinite;
+}
+.simak-live-dot.active { display: block; }
+@keyframes blinkDot { 50% { opacity: 0; } }
+.simak-transcript-text {
+  padding: 12px 14px;
+  min-height: 50px;
+  font-family: 'Amiri', serif;
+  font-size: 18px;
+  color: var(--text);
+  line-height: 1.8;
+}
+.simak-transcript-placeholder {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12px; color: var(--text-muted);
+  font-style: italic; direction: ltr;
+}
+
+/* Log */
+.simak-log-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+.simak-log-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.simak-log-header .material-icons { font-size: 15px; }
+.simak-log-body {
+  padding: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.simak-log-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 20px 0; font-style: italic; }
+
+.simak-log-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 10px; border-radius: 10px;
+  font-size: 12px; line-height: 1.45;
+  animation: logFade 0.25s ease;
+  border: 1px solid;
+}
+.simak-log-item.correct { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+.simak-log-item.wrong   { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.simak-log-item.info    { background: var(--g50); color: var(--g800); border-color: var(--g200); }
+.simak-log-item.warn    { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+body.dark .simak-log-item.correct { background: rgba(6,95,70,0.15); border-color: rgba(6,95,70,0.3); color: var(--g300); }
+body.dark .simak-log-item.wrong   { background: rgba(127,29,29,0.15); border-color: rgba(127,29,29,0.3); color: #fca5a5; }
+body.dark .simak-log-item.info    { background: rgba(6,78,59,0.2); border-color: rgba(6,78,59,0.4); color: var(--g200); }
+.simak-log-time { font-size: 10px; opacity: 0.55; white-space: nowrap; margin-top: 1px; }
+.simak-log-txt  { flex: 1; }
+.simak-log-arab { font-family: 'Amiri', serif; font-size: 15px; direction: rtl; display: block; margin-top: 3px; }
+@keyframes logFade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Stats row */
+.simak-stats-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+}
+.simak-stat {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px; padding: 12px 6px;
+  text-align: center;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+.simak-stat-val {
+  display: block; font-size: 18px; font-weight: 800;
+  color: var(--text); font-variant-numeric: tabular-nums;
+}
+.simak-stat-val.green { color: var(--g600); }
+.simak-stat-val.red   { color: #dc2626; }
+.simak-stat-lbl {
+  font-size: 9px; font-weight: 700;
+  color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.5px; margin-top: 2px; display: block;
+}
+
+/* Progress */
+.simak-progress-wrap {
+  display: flex; align-items: center; gap: 10px;
+}
+.simak-progress-bar {
+  flex: 1; height: 8px; background: var(--border);
+  border-radius: 99px; overflow: hidden;
+}
+.simak-progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, var(--g700), var(--g400));
+  border-radius: 99px;
+  transition: width 0.5s ease;
+}
+.simak-progress-pct {
+  font-size: 11px; font-weight: 700;
+  color: var(--primary); min-width: 32px; text-align: right;
+}
+
+/* Stop button */
+.simak-btn-stop {
+  width: 100%;
+  background: #fef2f2;
+  border: 1.5px solid #fecaca;
+  color: #dc2626;
+  border-radius: 14px; padding: 12px;
+  font-size: 14px; font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: background 0.2s;
+}
+.simak-btn-stop:hover { background: #fee2e2; }
+.simak-btn-stop .material-icons { font-size: 20px; }
+
+/* ── REPORT PANEL ──────────────────────────────────────────── */
+.simak-report-panel {
+  display: flex; flex-direction: column; gap: 14px;
+}
+.simak-report-header {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 16px; font-weight: 800; color: var(--primary);
+  padding: 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 4px 16px var(--shadow);
+}
+.simak-report-header .material-icons { font-size: 22px; color: #d97706; }
+
+.simak-score-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px; padding: 24px;
+  box-shadow: 0 4px 16px var(--shadow);
+}
+.simak-score-circle {
+  position: relative; width: 140px; height: 140px;
+}
+.simak-score-num {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px; font-weight: 800; color: var(--text);
+}
+.simak-score-grade {
+  font-size: 18px; font-weight: 800; color: var(--primary);
+}
+
+.simak-report-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.simak-report-row {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.simak-report-row-lbl { font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+.simak-report-row-val { font-size: 18px; font-weight: 800; color: var(--text); }
+
+.simak-error-section {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 14px;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+.simak-error-title {
+  font-size: 12px; font-weight: 700; color: #dc2626;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.simak-error-title .material-icons { font-size: 15px; }
+.simak-error-item {
+  background: #fef2f2; border: 1px solid #fecaca;
+  border-radius: 10px; padding: 10px 12px;
+  margin-bottom: 7px;
+}
+.simak-error-item:last-child { margin-bottom: 0; }
+.simak-error-hd { font-size: 11px; font-weight: 700; color: #dc2626; margin-bottom: 4px; }
+.simak-error-arab { font-family: 'Amiri', serif; font-size: 18px; color: #991b1b; direction: rtl; text-align: right; }
+.simak-error-note { font-size: 11px; color: #7f1d1d; margin-top: 4px; }
+body.dark .simak-error-item { background: rgba(127,29,29,0.15); border-color: rgba(127,29,29,0.3); }
+body.dark .simak-error-hd   { color: #fca5a5; }
+body.dark .simak-error-arab { color: #fecaca; }
+body.dark .simak-error-note { color: #fda4af; }
+
+.simak-history-section {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 14px;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+.simak-history-title {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; color: var(--primary);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+.simak-history-title .material-icons { font-size: 15px; }
+.simak-hist-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.simak-hist-item:last-child { border-bottom: none; }
+.simak-hist-score {
+  font-size: 18px; font-weight: 800;
+  min-width: 48px; text-align: center;
+}
+.simak-hist-info { flex: 1; }
+.simak-hist-name { font-weight: 700; color: var(--text); font-size: 13px; }
+.simak-hist-meta { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+.simak-btn-new {
+  width: 100%;
+  background: var(--g100);
+  border: 1.5px solid var(--g300);
+  color: var(--g800);
+  border-radius: 14px; padding: 13px;
+  font-size: 14px; font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: background 0.2s;
+}
+.simak-btn-new:hover { background: var(--g200); }
+.simak-btn-new .material-icons { font-size: 18px; }
+body.dark .simak-btn-new { background: var(--g900); border-color: var(--g800); color: var(--g300); }
+
+/* History card (bawah setup) */
+.simak-history-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 14px;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+.simak-history-card-title {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; color: var(--primary);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+.simak-history-card-title .material-icons { font-size: 15px; }
+.simak-empty-hist { font-size: 12px; color: var(--text-muted); text-align: center; padding: 16px 0; font-style: italic; }
+

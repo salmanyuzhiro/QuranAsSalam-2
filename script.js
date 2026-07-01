@@ -597,18 +597,234 @@ function renderSurahList(filter=''){
 
 function renderAudioList(){
   const container=document.getElementById('surahAudioPage');
-  container.innerHTML=SURAH_DATA.map(s=>`
-    <div class="audio-surah-card" onclick="playFullSurah(${s.n})">
-      <div class="audio-num-wrap">${s.n}</div>
-      <div class="audio-info"><h3>${s.latin}</h3><p>${s.arti} · ${s.ayat} Ayat · ${s.type}</p></div>
-      <div class="audio-arab">${s.ar}</div>
-      <span class="material-icons audio-play-icon">play_circle</span>
+
+  // Header info qari aktif
+  const qariNames = {
+    '01':'Mishary Alafasy','02':'Abdul Basit','03':'Minshawi',
+    '04':'Hani Rifai','05':'Maher Al Muaiqly','06':'Al Husary',
+    '07':'As Sudais','08':'Al Hudhaify','09':'Muhammad Ayyoub','10':'Al Tablaway'
+  };
+  const qNow = getQari();
+
+  container.innerHTML = `
+    <div class="audio-qari-info-bar">
+      <div class="audio-qari-info-left">
+        <span class="material-icons">record_voice_over</span>
+        <div>
+          <p class="audio-qari-name">Qari Aktif: <strong>${qariNames[qNow]||'Alafasy'}</strong></p>
+          <p class="audio-qari-sub">Ganti qari di menu Setelan</p>
+        </div>
+      </div>
+      <span class="material-icons" style="color:var(--primary);opacity:0.5">queue_music</span>
+    </div>
+  ` + SURAH_DATA.map(s=>`
+    <div class="audio-surah-card">
+      <div class="audio-num-wrap" onclick="playFullSurah(${s.n})">${s.n}</div>
+      <div class="audio-info" onclick="playFullSurah(${s.n})">
+        <h3>${s.latin}</h3>
+        <p>${s.arti} · ${s.ayat} Ayat · ${s.type}</p>
+      </div>
+      <div class="audio-arab" onclick="playFullSurah(${s.n})">${s.ar}</div>
+      <div class="audio-card-actions">
+        <button class="audio-action-btn play-btn" onclick="playFullSurah(${s.n})" title="Putar Online">
+          <span class="material-icons">play_circle</span>
+        </button>
+        <button class="audio-action-btn dl-btn" onclick="downloadFullSurah(${s.n})" title="Unduh Ayat 1">
+          <span class="material-icons">download</span>
+        </button>
+      </div>
     </div>`).join('');
 }
 
 function playFullSurah(surahNum){
   currentSurahNum=surahNum; isRangeMode=false; repeatCount=1; repeatDone=0;
   fetchAyahData(surahNum).then(data=>{ currentAyahData=data; currentAyahIndex=0; playAyah(0); showPlayer(); });
+}
+
+/* ══════════════════════════════════════════════════════════
+   DOWNLOAD & PLAY ONLINE MUROTTAL
+══════════════════════════════════════════════════════════ */
+
+const QARI_FULL = {
+  '01': { name:'Mishary Alafasy',      folder:'Alafasy_128kbps',                  kbps:'128' },
+  '02': { name:'Abdul Basit',          folder:'Abdul_Basit_Murattal_192kbps',     kbps:'192' },
+  '03': { name:'Minshawi',             folder:'Minshawy_Murattal_128kbps',        kbps:'128' },
+  '04': { name:'Hani Rifai',           folder:'Hani_Rifai_192kbps',               kbps:'192' },
+  '05': { name:'Maher Al Muaiqly',     folder:'Maher_AlMuaiqly_64kbps',           kbps:'64'  },
+  '06': { name:'Al Husary',            folder:'Husary_128kbps',                   kbps:'128' },
+  '07': { name:'As Sudais',            folder:'Abdurrahmaan_As-Sudais_192kbps',   kbps:'192' },
+  '08': { name:'Al Hudhaify',          folder:'Hudhaify_128kbps',                 kbps:'128' },
+  '09': { name:'Muhammad Ayyoub',      folder:'Muhammad_Ayyoub_128kbps',          kbps:'128' },
+  '10': { name:'Al Tablaway',          folder:'Mohammad_al_Tablaway_128kbps',     kbps:'128' },
+};
+
+/* Bangun URL audio satu ayat */
+function buildAudioUrl(surahNum, ayahNum, qariKey) {
+  const q   = QARI_FULL[qariKey] || QARI_FULL['01'];
+  const s   = pad(surahNum);
+  const a   = pad(ayahNum);
+  return `https://everyayah.com/data/${q.folder}/${s}${a}.mp3`;
+}
+
+/* ── Tampilkan Panel Download di Banner Surah ── */
+function showDownloadPanel() {
+  const panel = document.getElementById('download-panel');
+  if (!panel) return;
+
+  // Toggle panel
+  if (!panel.classList.contains('hidden')) {
+    panel.classList.add('hidden');
+    return;
+  }
+
+  const surahNum  = currentSurahNum;
+  const s         = SURAH_DATA[surahNum - 1];
+  const grid      = document.getElementById('dlQariGrid');
+  const ayahSel   = document.getElementById('dlAyahSelect');
+  const activeQ   = getQari();
+
+  // Render grid qari
+  grid.innerHTML = Object.entries(QARI_FULL).map(([key, q]) => {
+    const url    = buildAudioUrl(surahNum, 1, key); // ayat 1 sebagai preview
+    const isAct  = key === activeQ;
+    return `
+      <div class="dl-qari-card ${isAct ? 'active' : ''}">
+        <div class="dl-qari-top">
+          <div class="dl-qari-icon">
+            <span class="material-icons">${isAct ? 'record_voice_over' : 'person'}</span>
+          </div>
+          <div class="dl-qari-info">
+            <p class="dl-qari-nm">${q.name}</p>
+            <p class="dl-qari-kbps">${q.kbps} kbps · MP3</p>
+          </div>
+          ${isAct ? '<span class="dl-active-badge">Aktif</span>' : ''}
+        </div>
+        <div class="dl-qari-btns">
+          <button class="dl-play-online-btn" onclick="playOnlineSurahQari(${surahNum}, '${key}')">
+            <span class="material-icons">play_circle</span>
+            Putar
+          </button>
+          <button class="dl-download-btn" onclick="downloadAyahDirect(${surahNum}, 1, '${key}')">
+            <span class="material-icons">download</span>
+            Unduh Ayat 1
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Render pilihan ayat
+  ayahSel.innerHTML = '';
+  for (let i = 1; i <= s.ayat; i++) {
+    ayahSel.innerHTML += `<option value="${i}">Ayat ${i}</option>`;
+  }
+
+  panel.classList.remove('hidden');
+}
+
+/* ── Putar surah online dengan qari tertentu ── */
+function playOnlineSurahQari(surahNum, qariKey) {
+  // Simpan qari sementara
+  const prevQari   = settings.qari;
+  settings.qari    = qariKey;
+  currentSurahNum  = surahNum;
+  isRangeMode      = false;
+  repeatCount      = 1;
+  repeatDone       = 0;
+
+  fetchAyahData(surahNum).then(data => {
+    currentAyahData  = data;
+    currentAyahIndex = 0;
+    playAyah(0);
+    showPlayer();
+
+    // Update player subtitle dengan nama qari
+    const q = QARI_FULL[qariKey];
+    document.getElementById('audio-player-sub').textContent =
+      `${SURAH_DATA[surahNum-1].ar} · ${q.name}`;
+  });
+
+  showToastDl(`▶ Memutar dengan ${QARI_FULL[qariKey].name}`);
+}
+
+/* ── Putar satu ayat online dari panel download ── */
+function playOnlineAyah() {
+  const ayahNum = parseInt(document.getElementById('dlAyahSelect').value);
+  const qariKey = getQari();
+  const url     = buildAudioUrl(currentSurahNum, ayahNum, qariKey);
+  const s       = SURAH_DATA[currentSurahNum - 1];
+
+  const audioEl = document.getElementById('main-audio-element');
+  audioEl.src   = url;
+  audioEl.play().catch(()=>{});
+  showPlayer();
+  updatePlayerTitle(`${s.latin} · Ayat ${ayahNum}`);
+  document.getElementById('audio-player-sub').textContent = `${s.ar} · ${QARI_FULL[qariKey].name}`;
+  showToastDl(`▶ Memutar Ayat ${ayahNum}`);
+}
+
+/* ── Download langsung satu ayat (anchor trick) ── */
+function downloadAyahDirect(surahNum, ayahNum, qariKey) {
+  const url    = buildAudioUrl(surahNum, ayahNum, qariKey);
+  const s      = SURAH_DATA[surahNum - 1];
+  const q      = QARI_FULL[qariKey];
+  const fname  = `${s.latin}_Ayat${ayahNum}_${q.name.replace(/\s/g,'_')}.mp3`;
+
+  // Buka di tab baru (browser akan unduh/putar tergantung device)
+  const a      = document.createElement('a');
+  a.href       = url;
+  a.target     = '_blank';
+  a.rel        = 'noopener';
+  a.download   = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  showToastDl(`⬇ Mengunduh: ${fname}`);
+}
+
+/* ── Download ayat yang dipilih dari dropdown ── */
+function downloadSingleAyah() {
+  const ayahNum = parseInt(document.getElementById('dlAyahSelect').value);
+  downloadAyahDirect(currentSurahNum, ayahNum, getQari());
+}
+
+/* ── Download dari halaman Audio Murottal (klik tombol DL di list) ── */
+function downloadFullSurah(surahNum) {
+  const s      = SURAH_DATA[surahNum - 1];
+  const qKey   = getQari();
+  const q      = QARI_FULL[qKey];
+
+  // Buka sheet pilihan kecil (alert sederhana → bisa diperluas)
+  // Langsung unduh ayat 1 sebagai sample, beri tahu user
+  const url    = buildAudioUrl(surahNum, 1, qKey);
+  const fname  = `${s.latin}_Ayat1_${q.name.replace(/\s/g,'_')}.mp3`;
+  const a      = document.createElement('a');
+  a.href       = url;
+  a.target     = '_blank';
+  a.rel        = 'noopener';
+  a.download   = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  showToastDl(`⬇ Unduh ${s.latin} Ayat 1 · ${q.name}`);
+}
+
+/* ── Toast khusus download ── */
+let _dlToastTimer = null;
+function showToastDl(msg) {
+  // Reuse toast yang ada
+  const t = document.querySelector('.global-toast-dl') || (() => {
+    const el       = document.createElement('div');
+    el.className   = 'global-toast-dl';
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  t.innerHTML = `<span class="material-icons">download</span><span>${msg}</span>`;
+  t.classList.add('show');
+  clearTimeout(_dlToastTimer);
+  _dlToastTimer = setTimeout(() => t.classList.remove('show'), 3000);
 }
 
 function openSurah(surahNum, startIndex=0){
@@ -836,6 +1052,8 @@ let simakState = {
   recognition  : null,
   isMicActive  : false,
   silenceTimer : null,
+  bantuTimer   : null,     // timer 10 detik tanya bantuan
+  modeBantuan  : false,    // true = sedang menunggu jawaban "iya/tidak"
   lastTranscript: '',
   history      : JSON.parse(localStorage.getItem('simak_history') || '[]'),
 };
@@ -844,6 +1062,15 @@ const SIMAK_TTS_LANG = 'id-ID';
 
 /* ── Kamus Respon Suara AI ────────────────────────────────── */
 const AI_RESPONSES = {
+
+  // === RESPON UTAMA: SALAH ===
+  salah: [
+    'Salah.',
+    'Salah, ulangi.',
+    'Salah lagi.',
+    'Belum tepat.',
+    'Kurang tepat, coba lagi.',
+  ],
 
   // === RESPON HAFALAN SALAH (kata tidak dikenal sama sekali) ===
   hafalanSalah: [
@@ -864,12 +1091,68 @@ const AI_RESPONSES = {
     'Salah. Keluarkan huruf dari makhraj yang benar.',
   ],
 
+  // === RESPON TAJWID SALAH ===
+  tajwidSalah: [
+    'Salah. Tajwid perlu diperbaiki.',
+    'Bacaan tajwid kurang tepat.',
+    'Perhatikan hukum tajwidnya.',
+    'Salah. Tajwid belum benar.',
+  ],
+
   // === RESPON MAD (panjang pendek) ===
   madSalah: [
     'Salah. Mad kurang panjang.',
     'Panjang bacaan kurang tepat.',
     'Mad belum sempurna, ulangi.',
     'Salah. Perhatikan panjang madnya.',
+  ],
+
+  // === RESPON GHUNNAH ===
+  ghunnahSalah: [
+    'Salah. Ghunnah kurang jelas.',
+    'Dengung belum terdengar, ulangi.',
+    'Salah. Ghunnah perlu diperjelas.',
+  ],
+
+  // === RESPON KURANG TEPAT (mirip, sedikit salah) ===
+  kurangTepat: [
+    'Kurang tepat.',
+    'Hampir benar, ulangi.',
+    'Sedikit kurang tepat.',
+    'Belum sempurna, coba lagi.',
+    'Kurang jelas, ulangi lagi.',
+  ],
+
+  // === RESPON BENAR ===
+  benar: [
+    'Benar.',
+    'Benar, lanjut.',
+    'Bagus.',
+    'Tepat.',
+    'Alhamdulillah, benar.',
+  ],
+
+  // === RESPON LANJUT ===
+  lanjut: [
+    'Lanjut.',
+    'Silakan lanjut.',
+    'Teruskan.',
+    'Lanjutkan bacaan.',
+  ],
+
+  // === RESPON SELESAI ===
+  selesai: [
+    'Sesi selesai. Jazakallahu khayran.',
+    'Selesai. Semoga bermanfaat.',
+    'Alhamdulillah, sesi selesai.',
+  ],
+
+  // === RESPON DIAM TERLALU LAMA ===
+  diam: [
+    'Lanjutkan bacaan.',
+    'Silakan lanjut.',
+    'Mengapa berhenti? Teruskan.',
+    'Jangan ragu, lanjutkan.',
   ],
 };
 
@@ -1123,6 +1406,9 @@ function startSimakRecognition() {
       kata ? `Lanjutkan dari: ${kata}` : 'Bacalah dengan tartil dan jelas'
     );
     document.getElementById('simakLiveDot').classList.add('active');
+
+    /* Mulai timer bantuan 10 detik jika belum ada bacaan */
+    startSilenceTimers();
   };
 
   rec.onresult = (event) => {
@@ -1145,29 +1431,25 @@ function startSimakRecognition() {
     // Proses jika ada teks final
     if (finalTranscript.trim()) {
       simakState.lastTranscript = finalTranscript.trim();
-      prosesBackaanAI(finalTranscript.trim());
-    }
 
-    // Deteksi diam terlalu lama
-    simakState.silenceTimer = setTimeout(() => {
-      if (simakState.active && simakState.isMicActive) {
-        const ayah = simakState.ayahDataList[simakState.currentIdx];
-        const kata  = ayah?.words[simakState.currentWordIdx] || '';
-        simakAddLog('warn',
-          `⏱️ Berhenti terlalu lama${kata ? ` — lanjutkan dari: <span class="simak-log-arab">${kata}</span>` : '...'}`
-        );
-        simakSetLabel('Mengapa berhenti?', 'Lanjutkan bacaan Anda');
-        aiSay('diam');
-        setTimeout(() => {
-          if (simakState.active) simakSetLabel('AI Mendengarkan...', 'Mulai baca kembali');
-        }, 2000);
+      /* ── Jika sedang mode bantuan, cek jawaban iya/tidak ── */
+      if (simakState.modeBantuan) {
+        cekJawabanBantuan(finalTranscript.trim());
+        return; // jangan proses sebagai bacaan
       }
-    }, getLevelTimeout());
+
+      /* ── Proses normal sebagai bacaan hafalan ── */
+      prosesBackaanAI(finalTranscript.trim());
+
+      /* Reset kedua timer karena user sudah bicara */
+      clearTimeout(simakState.silenceTimer);
+      clearTimeout(simakState.bantuTimer);
+      startSilenceTimers();
+    }
   };
 
   rec.onerror = (event) => {
     if (event.error === 'no-speech') {
-      // Restart otomatis
       if (simakState.active) setTimeout(() => startSimakRecognition(), 300);
       return;
     }
@@ -1179,13 +1461,196 @@ function startSimakRecognition() {
   rec.onend = () => {
     simakState.isMicActive = false;
     document.getElementById('simakLiveDot').classList.remove('active');
-    // Restart jika sesi masih aktif
     if (simakState.active) {
       setTimeout(() => startSimakRecognition(), 200);
     }
   };
 
   try { rec.start(); } catch(e) { console.warn('SR start error:', e); }
+}
+
+/* ══════════════════════════════════════════════════════════
+   SISTEM BANTUAN OTOMATIS — 10 Detik Lupa Hafalan
+══════════════════════════════════════════════════════════ */
+
+/*
+  Alur:
+  1. User diam 10 detik → AI tanya "Maaf, apakah boleh saya bantu?"
+  2. AI switch ke mode mendengar jawaban (modeBantuan = true)
+  3. Jika user bilang "iya/ya/boleh/mau/tolong" → AI putar audio ayat tsb
+  4. Jika user bilang "tidak/jangan/lanjut" → AI kembali mendengar hafalan
+  5. Jika user tidak jawab 8 detik → AI kembali mendengar hafalan sendiri
+*/
+
+function startSilenceTimers() {
+  clearTimeout(simakState.silenceTimer);
+  clearTimeout(simakState.bantuTimer);
+
+  /* Timer 10 detik → tanya bantuan */
+  simakState.bantuTimer = setTimeout(() => {
+    if (!simakState.active || !simakState.isMicActive) return;
+    if (simakState.modeBantuan) return; // sudah tanya, jangan double
+
+    tanyaBantuan();
+  }, 10000);
+}
+
+function tanyaBantuan() {
+  const ayah = simakState.ayahDataList[simakState.currentIdx];
+  if (!ayah) return;
+
+  simakState.modeBantuan = true;
+
+  /* Update visual */
+  simakSetOrbState('thinking');
+  simakSetLabel('Apakah perlu bantuan?', 'AI menunggu jawaban Anda...');
+  document.getElementById('simakLiveDot').classList.add('active');
+
+  /* Log */
+  simakAddLog('info',
+    `💬 AI: "Maaf, apakah boleh saya bantu?" — Ayat ${ayah.number}`
+  );
+
+  /* Tampilkan UI bantuan di transcript box */
+  const transcriptEl = document.getElementById('simakTranscriptText');
+  transcriptEl.innerHTML = `
+    <div class="simak-bantuan-ui">
+      <p class="simak-bantuan-q">💬 <em>Maaf, apakah boleh saya bantu?</em></p>
+      <div class="simak-bantuan-btns">
+        <button class="simak-bantuan-iya" onclick="jawabanBantuan(true)">
+          <span class="material-icons">play_circle</span> Ya, putar murottal
+        </button>
+        <button class="simak-bantuan-tidak" onclick="jawabanBantuan(false)">
+          <span class="material-icons">mic</span> Tidak, saya coba lagi
+        </button>
+      </div>
+      <p class="simak-bantuan-hint">Atau ucapkan "iya" / "tidak"</p>
+    </div>`;
+
+  /* Ucapkan pertanyaan */
+  simakSpeak('Maaf, apakah boleh saya bantu?');
+
+  /* Timeout otomatis 8 detik jika tidak ada jawaban → kembali normal */
+  simakState.silenceTimer = setTimeout(() => {
+    if (simakState.modeBantuan && simakState.active) {
+      simakState.modeBantuan = false;
+      simakSetOrbState('listening');
+      simakSetLabel('AI Mendengarkan...', 'Silakan lanjutkan bacaan');
+      resetTranscriptBox();
+      startSilenceTimers();
+    }
+  }, 8000);
+}
+
+/* Deteksi jawaban suara: iya atau tidak */
+function cekJawabanBantuan(heard) {
+  const h = heard.toLowerCase().trim();
+
+  const kataIya   = ['iya','ya','boleh','mau','tolong','bantu','please','ok','oke','silakan'];
+  const kataTidak = ['tidak','jangan','no','nggak','gak','enggak','lanjut','bisa','sendiri'];
+
+  const jawabIya   = kataIya.some(k   => h.includes(k));
+  const jawabTidak = kataTidak.some(k => h.includes(k));
+
+  if (jawabIya) {
+    jawabanBantuan(true);
+  } else if (jawabTidak) {
+    jawabanBantuan(false);
+  }
+  // Jika tidak dikenali, tetap tunggu
+}
+
+/* Handler jawaban bantuan (dari tombol UI atau suara) */
+function jawabanBantuan(iya) {
+  clearTimeout(simakState.silenceTimer);
+  simakState.modeBantuan = false;
+
+  if (iya) {
+    /* ── User minta bantuan → putar audio ayat yang sedang dihafalkan ── */
+    const ayah    = simakState.ayahDataList[simakState.currentIdx];
+    const surahN  = simakState.surahNum;
+    const ayahN   = ayah?.number || 1;
+    const surahS  = SURAH_DATA[surahN - 1];
+
+    simakSetOrbState('correct');
+    simakSetLabel('Memutar Murottal...', `${surahS.latin} Ayat ${ayahN}`);
+
+    simakAddLog('info',
+      `🔊 Memutar murottal Ayat ${ayahN} sebagai bantuan hafalan`
+    );
+
+    /* Update transcript box */
+    const transcriptEl = document.getElementById('simakTranscriptText');
+    transcriptEl.innerHTML = `
+      <div style="direction:ltr;font-family:var(--font-body,sans-serif);font-size:12px;color:var(--text-muted);text-align:center;padding:8px 0">
+        <span class="material-icons" style="font-size:28px;color:var(--primary);display:block;margin-bottom:6px">play_circle</span>
+        <strong>Memutar: ${surahS.latin} Ayat ${ayahN}</strong><br>
+        Simak, lalu ulangi hafalannya
+      </div>`;
+
+    /* Ucapkan info sebelum putar */
+    simakSpeak(`Baik, saya putarkan Ayat ${ayahN}`);
+
+    /* Putar audio via player utama setelah TTS selesai */
+    const delayPutar = 1800;
+    setTimeout(() => {
+      if (!simakState.active) return;
+
+      /* Gunakan audio player utama app */
+      _audioIntentionalStop = false;
+      const url   = audioUrl(surahN, ayahN);
+      audio.src   = url;
+      audio.play().catch(() => {});
+
+      updatePlayerTitle(`${surahS.latin} · Ayat ${ayahN} (Bantuan Hafalan)`);
+      document.getElementById('audio-player-sub').textContent = surahS.ar;
+      showPlayer();
+
+      /* Setelah audio selesai → kembali simak hafalan */
+      const onBantuanEnd = () => {
+        audio.removeEventListener('ended', onBantuanEnd);
+        if (!simakState.active) return;
+
+        simakSetOrbState('listening');
+        simakSetLabel('Silakan ulangi hafalannya', `Ayat ${ayahN}`);
+        simakAddLog('info', '🎙️ Silakan ulangi hafalan setelah mendengar murottal');
+        simakSpeak('Silakan ulangi hafalannya');
+
+        resetTranscriptBox();
+
+        /* Reset kata pointer ke awal ayat ini agar bisa diulang */
+        simakState.currentWordIdx = 0;
+        simakRenderAyat(simakState.currentIdx);
+        simakHighlightWord(simakState.currentIdx, 0, 'current');
+
+        /* Restart timer diam */
+        setTimeout(() => {
+          if (simakState.active) startSilenceTimers();
+        }, 2500);
+      };
+
+      audio.addEventListener('ended', onBantuanEnd);
+
+    }, delayPutar);
+
+  } else {
+    /* ── User tidak minta bantuan → kembali mendengar ── */
+    simakSetOrbState('listening');
+    simakSetLabel('AI Mendengarkan...', 'Ayo, lanjutkan hafalannya!');
+    simakSpeak('Baik, silakan lanjutkan.');
+    simakAddLog('info', '💪 Baik, silakan lanjutkan hafalan');
+    resetTranscriptBox();
+
+    setTimeout(() => {
+      if (simakState.active) startSilenceTimers();
+    }, 1500);
+  }
+}
+
+/* Reset transcript box ke placeholder */
+function resetTranscriptBox() {
+  const el = document.getElementById('simakTranscriptText');
+  if (el) el.innerHTML = '<span class="simak-transcript-placeholder">Suara Anda akan muncul di sini...</span>';
 }
 
 /* ── Proses Bacaan dari AI ────────────────────────────────── */
@@ -1421,6 +1886,8 @@ function hentikanSimak() {
 function selesaiSimak() {
   simakState.active = false;
   clearTimeout(simakState.silenceTimer);
+  clearTimeout(simakState.bantuTimer);
+  simakState.modeBantuan = false;
   clearInterval(simakState.timerInterval);
 
   // Stop recognition
@@ -1718,12 +2185,19 @@ function renderSimakHistoryIn(container, limit) {
 }
 
 /* ── GLOBAL EXPORTS ───────────────────────────────────────── */
-window.switchView        = switchView;
-window.openSurah         = openSurah;
-window.playAyah          = playAyah;
-window.playFullSurah     = playFullSurah;
-window.toggleBookmark    = toggleBookmark;
-window.deleteBookmark    = deleteBookmark;
-window.showShalatInfo    = showShalatInfo;
-window.showQiblatInfo    = showQiblatInfo;
-window.resetSimakSession = resetSimakSession;
+window.switchView          = switchView;
+window.openSurah           = openSurah;
+window.playAyah            = playAyah;
+window.playFullSurah       = playFullSurah;
+window.toggleBookmark      = toggleBookmark;
+window.deleteBookmark      = deleteBookmark;
+window.showShalatInfo      = showShalatInfo;
+window.showQiblatInfo      = showQiblatInfo;
+window.resetSimakSession   = resetSimakSession;
+window.jawabanBantuan      = jawabanBantuan;
+window.showDownloadPanel   = showDownloadPanel;
+window.playOnlineSurahQari = playOnlineSurahQari;
+window.playOnlineAyah      = playOnlineAyah;
+window.downloadAyahDirect  = downloadAyahDirect;
+window.downloadSingleAyah  = downloadSingleAyah;
+window.downloadFullSurah   = downloadFullSurah;

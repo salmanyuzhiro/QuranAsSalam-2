@@ -7,7 +7,7 @@
   <title>Al Qur'an As Salam</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Amiri+Quran&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="Style.css?v=1">
+  <link rel="stylesheet" href="./Style.css">
 </head>
 <body>
 
@@ -98,7 +98,7 @@
             <span class="material-icons">record_voice_over</span>
           </div>
           <div>
-            <p class="ai-guru-banner-title">AI Guru Tahfizh <span class="ai-badge-new">BARU</span></p>
+            <p class="ai-guru-banner-title">AI Simak Murojaah <span class="ai-badge-new">BARU</span></p>
             <p class="ai-guru-banner-sub">Simak & koreksi hafalan secara real-time</p>
           </div>
         </div>
@@ -159,6 +159,38 @@
           <button id="btn-play-full-audio" class="banner-play-btn">
             <span class="material-icons">play_arrow</span> Putar Semua
           </button>
+          <button id="btn-download-surah" class="banner-dl-btn" onclick="showDownloadPanel()">
+            <span class="material-icons">download</span> Unduh Murottal
+          </button>
+        </div>
+
+        <!-- DOWNLOAD PANEL -->
+        <div id="download-panel" class="download-panel hidden">
+          <div class="dl-panel-title">
+            <span class="material-icons">download</span>
+            Unduh / Dengarkan Murottal Online
+          </div>
+          <p class="dl-panel-sub">Pilih qari lalu tekan tombol untuk mendengarkan atau mengunduh murottal surah ini.</p>
+          <div class="dl-qari-grid" id="dlQariGrid"></div>
+          <div class="dl-ayah-section">
+            <div class="dl-ayah-title">
+              <span class="material-icons">queue_music</span>
+              Unduh Per Ayat
+            </div>
+            <div class="dl-ayah-row">
+              <select class="dl-select" id="dlAyahSelect"></select>
+              <button class="dl-ayah-btn" onclick="downloadSingleAyah()">
+                <span class="material-icons">download</span> Unduh Ayat
+              </button>
+              <button class="dl-ayah-play-btn" onclick="playOnlineAyah()">
+                <span class="material-icons">play_circle</span> Putar Online
+              </button>
+            </div>
+          </div>
+          <div class="dl-info">
+            <span class="material-icons">info_outline</span>
+            Audio dari everyayah.com · Format MP3 · Gratis
+          </div>
         </div>
         <div class="audio-range-box">
           <div class="range-row">
@@ -203,8 +235,8 @@
             <span class="material-icons">arrow_back</span>
           </button>
           <div>
-            <h2 class="simak-title">AI Guru Tahfizh</h2>
-            <p class="simak-subtitle">Simak Hafalan Real-Time · v4.0</p>
+            <h2 class="simak-title">AI Simak Murojaah</h2>
+            <p class="simak-subtitle">Simak Mrojaah Hafalan Al-Qur'an · v4.0</p>
           </div>
           <div class="simak-ai-dot" id="simakAiDot">
             <span class="material-icons">record_voice_over</span>

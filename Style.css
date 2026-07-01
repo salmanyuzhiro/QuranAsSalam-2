@@ -1144,6 +1144,76 @@ body.dark .compass-outer {
 }
 body.dark .nav-simak-special .material-icons { background: var(--g900); }
 
+
+/* ============================================================
+   SIMAK HAFALAN — AI Guru Tahfizh v4.0
+   Tambahan style.css
+   ============================================================ */
+
+/* ── AI GURU BANNER (Beranda) ──────────────────────────────── */
+.ai-guru-banner {
+  background: linear-gradient(135deg, #064e3b 0%, #059669 60%, #34d399 100%);
+  border-radius: 20px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  cursor: pointer;
+  box-shadow: 0 8px 28px rgba(6,78,59,0.35);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s;
+}
+.ai-guru-banner:active { transform: scale(0.98); }
+.ai-guru-banner::before {
+  content:'';
+  position:absolute;
+  inset:0;
+  background: radial-gradient(circle at 85% 30%, rgba(255,255,255,0.12) 0%, transparent 55%);
+  pointer-events:none;
+}
+.ai-guru-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  z-index: 1;
+}
+.ai-guru-orb-mini {
+  width: 46px; height: 46px; min-width: 46px;
+  background: rgba(255,255,255,0.15);
+  border: 1.5px solid rgba(255,255,255,0.3);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.ai-guru-orb-mini .material-icons { color: #fff; font-size: 24px; }
+.ai-guru-banner-title {
+  font-size: 15px; font-weight: 800; color: #fff;
+  display: flex; align-items: center; gap: 8px;
+}
+.ai-badge-new {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.8px;
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+  padding: 2px 7px; border-radius: 8px;
+  text-transform: uppercase;
+}
+.ai-guru-banner-sub { font-size: 11px; color: rgba(255,255,255,0.8); margin-top: 2px; }
+
+/* ── BOTTOM NAV: Simak special ─────────────────────────────── */
+.nav-simak-special { position: relative; }
+.nav-simak-special .material-icons {
+  color: var(--primary);
+  background: var(--g100);
+  border-radius: 12px;
+  padding: 4px 10px;
+}
+.nav-simak-special.active .material-icons {
+  background: var(--primary);
+  color: white !important;
+}
+body.dark .nav-simak-special .material-icons { background: var(--g900); }
+
 /* ══════════════════════════════════════════════
    SIMAK HAFALAN VIEW
 ══════════════════════════════════════════════ */
@@ -1691,3 +1761,423 @@ body.dark .simak-btn-new { background: var(--g900); border-color: var(--g800); c
 .simak-history-card-title .material-icons { font-size: 15px; }
 .simak-empty-hist { font-size: 12px; color: var(--text-muted); text-align: center; padding: 16px 0; font-style: italic; }
 
+
+/* ============================================================
+   DOWNLOAD & PLAY ONLINE MUROTTAL — Style
+   ============================================================ */
+
+/* ── Tombol Download di Banner ───────────────────────────── */
+.banner-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.banner-dl-btn {
+  background: rgba(255,255,255,0.12);
+  border: 1.5px solid rgba(255,255,255,0.3);
+  color: white;
+  border-radius: 24px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(4px);
+  transition: background 0.2s, transform 0.15s;
+}
+.banner-dl-btn:hover  { background: rgba(255,255,255,0.22); }
+.banner-dl-btn:active { transform: scale(0.97); }
+.banner-dl-btn .material-icons { font-size: 18px; }
+
+/* ── Download Panel ───────────────────────────────────────── */
+.download-panel {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 18px;
+  padding: 16px;
+  margin-top: 14px;
+  backdrop-filter: blur(8px);
+  animation: dlPanelIn 0.25s ease;
+  position: relative;
+  z-index: 2;
+}
+
+@keyframes dlPanelIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dl-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
+}
+.dl-panel-title .material-icons { font-size: 17px; color: var(--g300); }
+
+.dl-panel-sub {
+  font-size: 11px;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+/* Qari Grid */
+.dl-qari-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.dl-qari-card {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 14px;
+  padding: 12px 14px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.dl-qari-card.active {
+  background: rgba(52,211,153,0.18);
+  border-color: rgba(52,211,153,0.5);
+}
+.dl-qari-card:hover { background: rgba(255,255,255,0.14); }
+
+.dl-qari-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.dl-qari-icon {
+  width: 36px; height: 36px; min-width: 36px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+.dl-qari-icon .material-icons { font-size: 18px; color: var(--g300); }
+.dl-qari-info { flex: 1; }
+.dl-qari-nm   { font-size: 13px; font-weight: 700; color: #fff; }
+.dl-qari-kbps { font-size: 10px; color: rgba(255,255,255,0.55); margin-top: 2px; }
+.dl-active-badge {
+  font-size: 9px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  background: var(--g500); color: white;
+  padding: 2px 8px; border-radius: 8px;
+}
+
+.dl-qari-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.dl-play-online-btn {
+  flex: 1;
+  background: var(--g600);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  padding: 8px 10px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  transition: background 0.2s, transform 0.15s;
+}
+.dl-play-online-btn:hover  { background: var(--g700); }
+.dl-play-online-btn:active { transform: scale(0.97); }
+.dl-play-online-btn .material-icons { font-size: 16px; }
+
+.dl-download-btn {
+  flex: 1;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  padding: 8px 10px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  transition: background 0.2s, transform 0.15s;
+  text-decoration: none;
+}
+.dl-download-btn:hover  { background: rgba(255,255,255,0.25); }
+.dl-download-btn:active { transform: scale(0.97); }
+.dl-download-btn .material-icons { font-size: 16px; }
+
+/* Download Per Ayat */
+.dl-ayah-section {
+  background: rgba(0,0,0,0.2);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.dl-ayah-title {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700;
+  color: rgba(255,255,255,0.8);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+.dl-ayah-title .material-icons { font-size: 14px; color: var(--g300); }
+
+.dl-ayah-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dl-select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.1);
+  color: white;
+  font-size: 12px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  outline: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  min-width: 90px;
+}
+.dl-select option { background: #065f46; color: white; }
+
+.dl-ayah-btn {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 8px;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  padding: 7px 12px;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.dl-ayah-btn:hover { background: rgba(255,255,255,0.25); }
+.dl-ayah-btn .material-icons { font-size: 15px; }
+
+.dl-ayah-play-btn {
+  background: var(--g600);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  padding: 7px 12px;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.dl-ayah-play-btn:hover { background: var(--g700); }
+.dl-ayah-play-btn .material-icons { font-size: 15px; }
+
+/* Info bawah */
+.dl-info {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+  padding-top: 2px;
+}
+.dl-info .material-icons { font-size: 13px; }
+
+/* ── Audio Surah List — Upgrade ───────────────────────────── */
+.audio-qari-info-bar {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+.audio-qari-info-left {
+  display: flex; align-items: center; gap: 10px;
+}
+.audio-qari-info-left .material-icons {
+  font-size: 22px; color: var(--primary);
+}
+.audio-qari-name {
+  font-size: 13px; color: var(--text); line-height: 1.3;
+}
+.audio-qari-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+/* Audio card actions */
+.audio-card-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.audio-action-btn {
+  width: 36px; height: 36px;
+  border: none;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+.audio-action-btn:active { transform: scale(0.92); }
+.audio-action-btn .material-icons { font-size: 20px; }
+
+.audio-action-btn.play-btn {
+  background: var(--g100);
+  color: var(--g700);
+}
+.audio-action-btn.play-btn:hover { background: var(--g200); }
+body.dark .audio-action-btn.play-btn { background: var(--g900); color: var(--g300); }
+
+.audio-action-btn.dl-btn {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+.audio-action-btn.dl-btn:hover { background: #bae6fd; }
+body.dark .audio-action-btn.dl-btn { background: #0c4a6e; color: #7dd3fc; }
+
+/* ── Global Toast Download ────────────────────────────────── */
+.global-toast-dl {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  background: var(--g900);
+  color: white;
+  padding: 10px 18px;
+  border-radius: 50px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  z-index: 998;
+  opacity: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 4px 20px rgba(6,78,59,0.4);
+  transition: opacity 0.25s, transform 0.25s;
+  white-space: nowrap;
+  max-width: 90vw;
+}
+.global-toast-dl .material-icons { font-size: 15px; color: var(--g300); }
+.global-toast-dl.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Responsive */
+@media (max-width: 400px) {
+  .dl-qari-btns { flex-direction: column; }
+  .dl-ayah-row  { flex-direction: column; align-items: flex-start; }
+  .banner-actions { flex-direction: column; align-items: center; }
+}
+
+/* ============================================================
+   SISTEM BANTUAN HAFALAN — UI Tanya Bantuan
+   ============================================================ */
+
+/* Box bantuan di dalam transcript area */
+.simak-bantuan-ui {
+  direction: ltr;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  padding: 4px 0;
+}
+
+.simak-bantuan-q {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+  text-align: center;
+  line-height: 1.5;
+}
+.simak-bantuan-q em {
+  color: var(--primary);
+  font-style: normal;
+}
+
+.simak-bantuan-btns {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.simak-bantuan-iya {
+  flex: 1;
+  background: linear-gradient(135deg, var(--g700), var(--g500));
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  padding: 10px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  box-shadow: 0 4px 12px rgba(4,120,87,0.3);
+  transition: opacity 0.2s, transform 0.15s;
+}
+.simak-bantuan-iya:hover  { opacity: 0.9; }
+.simak-bantuan-iya:active { transform: scale(0.96); }
+.simak-bantuan-iya .material-icons { font-size: 16px; }
+
+.simak-bantuan-tidak {
+  flex: 1;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  padding: 10px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: background 0.2s, transform 0.15s;
+}
+.simak-bantuan-tidak:hover  { background: var(--border); }
+.simak-bantuan-tidak:active { transform: scale(0.96); }
+.simak-bantuan-tidak .material-icons { font-size: 16px; }
+
+.simak-bantuan-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  font-style: italic;
+}
+
+/* Dark mode */
+body.dark .simak-bantuan-q  { color: var(--text); }
+body.dark .simak-bantuan-tidak {
+  background: var(--bg2);
+  border-color: var(--border);
+  color: var(--text);
+}

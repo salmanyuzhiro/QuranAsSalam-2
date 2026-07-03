@@ -2429,7 +2429,7 @@ async function agKirimPesan(teksOverride) {
   const typingId = agTampilkanTyping();
 
   try {
-    const balasan = await agTanyaAI(teks);
+    const balasan = await handleUstazQuery(teks);
     agHapusTyping(typingId);
     agTambahBubble('ai', balasan);
     AG.chatHistory.push({ role: 'ai', text: balasan });
@@ -3219,3 +3219,209 @@ window.downloadSingleAyah  = downloadSingleAyah;
 window.downloadFullSurah   = downloadFullSurah;
 window.mintaIzinProaktif   = mintaIzinProaktif;
 
+/* =========================================================
+   USTAZ AI HANDLER
+   Versi Al Qur'an As Salam
+   ========================================================= */
+
+/* -----------------------------
+   NORMALISASI NAMA SURAH
+----------------------------- */
+
+function aiNormalisasiNama(str){
+    return String(str || "")
+        .toLowerCase()
+        .replace(/[-']/g,"")
+        .replace(/^(al|an|ar|as|at|az)\s?/,"")
+        .replace(/\s+/g,"")
+        .trim();
+}
+
+/* -----------------------------
+   CARI SURAH BERDASARKAN NAMA
+----------------------------- */
+
+function aiCariSurahByNama(nama){
+
+    let q = aiNormalisasiNama(nama);
+
+    if (AI_SURAH_ALIAS[q]) {
+        q = aiNormalisasiNama(AI_SURAH_ALIAS[q]);
+    }
+
+    return SURAH_DATA.find(s=>{
+
+        const latin = aiNormalisasiNama(s.latin);
+        const arti  = aiNormalisasiNama(s.arti || "");
+        const arab  = String(s.ar || "");
+
+        return (
+            latin === q ||
+            latin.includes(q) ||
+            q.includes(latin) ||
+            arti === q ||
+            arti.includes(q) ||
+            arab.includes(nama)
+        );
+
+    });
+
+}
+
+const AI_SURAH_ALIAS = {
+
+    "yasin":"ya sin",
+    "kahfi":"al kahf",
+    "ikhlas":"al ikhlas",
+    "falaq":"al falaq",
+    "nas":"an nas",
+    "baqarah":"al baqarah",
+    "fatihah":"al fatihah",
+    "mulk":"al mulk",
+    "rahman":"ar rahman",
+    "waqiah":"al waqiah",
+    "kahf":"al kahf"
+
+};
+
+/* -----------------------------
+   CARI SURAH BERDASARKAN NOMOR
+----------------------------- */
+
+function aiCariSurahByNomor(no){
+
+    return SURAH_DATA.find(s=>s.n===Number(no));
+
+}
+/* =========================================================
+   INTENT DETECTOR
+   ========================================================= */
+
+const AI_INTENT_PATTERNS = [
+
+/* -----------------------------
+   Surah ke berapa
+----------------------------- */
+
+{
+regex:/(?:surah\s+)?([a-zA-Z' -]+?)\s+(?:surah\s+)?(?:ke\s?berapa|nomor\s?berapa|urutan\s?ke\s?berapa)/i,
+
+handler:(m)=>{
+
+const s=aiCariSurahByNama(m[1]);
+
+if(!s) return null;
+
+return `Surah ${s.latin} adalah surah ke-${s.n}, terdiri dari ${s.ayat} ayat, dan termasuk golongan ${s.type}.`;
+
+}
+
+},
+
+/* -----------------------------
+   Surah nomor berapa
+----------------------------- */
+
+{
+regex:/surah\s+(?:ke|nomor)\s*(\d{1,3})/i,
+
+handler:(m)=>{
+
+const s=aiCariSurahByNomor(m[1]);
+
+if(!s) return null;
+
+return `Surah ke-${s.n} adalah ${s.latin}, terdiri dari ${s.ayat} ayat (${s.type}).`;
+
+}
+
+},
+
+/* -----------------------------
+   Jumlah ayat
+----------------------------- */
+
+{
+regex:/(?:berapa|jumlah)\s+ayat\s+(?:surah\s+)?([a-zA-Z' -]+)/i,
+
+handler:(m)=>{
+
+const s=aiCariSurahByNama(m[1]);
+
+if(!s) return null;
+
+return `Surah ${s.latin} memiliki ${s.ayat} ayat.`;
+
+}
+
+},
+
+/* -----------------------------
+   Makkiyah / Madaniyah
+----------------------------- */
+
+{
+regex:/([a-zA-Z' -]+?)\s+(?:turun\s?dimana|makkiyah\s?atau\s?madaniyah|termasuk\s?golongan\s?apa)/i,
+
+handler:(m)=>{
+
+const s=aiCariSurahByNama(m[1]);
+
+if(!s) return null;
+
+return `Surah ${s.latin} termasuk golongan ${s.type}.`;
+
+}
+
+}
+
+];
+
+/* =========================================================
+   HANDLE USTAZ QUERY
+   ========================================================= */
+
+async function handleUstazQuery(userText){
+
+    userText = String(userText || "").trim();
+
+    /* ===========================
+       CEK PERTANYAAN FAKTUAL
+    ============================ */
+
+    for(const item of AI_INTENT_PATTERNS){
+
+        const match = userText.match(item.regex);
+
+        if(match){
+
+            const hasil = item.handler(match);
+
+            if(hasil){
+
+                return hasil;
+
+            }
+
+        }
+
+    }
+
+    /* ===========================
+       BUKAN PERTANYAAN FAKTA
+       KIRIM KE CLAUDE
+    ============================ */
+
+    try{
+
+        return await agTanyaAI(userText);
+
+    }catch(err){
+
+        console.error(err);
+
+        return "Maaf, saya belum dapat menjawab pertanyaan tersebut saat ini.";
+
+    }
+
+}

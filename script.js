@@ -189,7 +189,10 @@ window.addEventListener('DOMContentLoaded', () => {
   setupDrawer();
   setupAudioPlayer();
   setupMediaSession();
-  initSimak(); // ← AI Guru Tahfizh
+  initSimak();
+
+  // ── Minta izin proaktif setelah splash ──
+  setTimeout(() => mintaIzinProaktif(), 2800);
 
   document.getElementById('quick-surah')?.addEventListener('click', () => switchView('surah-list'));
   document.getElementById('quick-shalat')?.addEventListener('click', () => showShalatInfo());
@@ -228,6 +231,456 @@ window.addEventListener('DOMContentLoaded', () => {
     openSurah(lastRead.surahNum, lastRead.ayahNum - 1);
   });
 });
+
+/* ══════════════════════════════════════════════════════════
+   PERMISSION SYSTEM — Minta izin proaktif saat app dibuka
+   Solusi untuk WebView / TWA Android yang tidak otomatis
+   minta izin dari browser
+══════════════════════════════════════════════════════════ */
+
+const PERM_KEY = 'assalam_perms_asked';
+
+async function mintaIzinProaktif() {
+  // Jika sudah pernah ditanya, skip (kecuali denied → tanya lagi)
+  const statusTersimpan = JSON.parse(localStorage.getItem(PERM_KEY) || '{}');
+
+  const perluTanya =
+    !statusTersimpan.geolocation ||
+    statusTersimpan.geolocation === 'denied' ||
+    !statusTersimpan.orientation;
+
+  if (!perluTanya) {
+    // Sudah granted sebelumnya — langsung cache ulang status real
+    cekStatusPermission();
+    return;
+  }
+
+  // Tampilkan dialog izin custom sebelum browser prompt
+  tampilkanDialogIzin();
+}
+
+function tampilkanDialogIzin() {
+  // Buat overlay dialog
+  const overlay = document.createElement('div');
+  overlay.id    = 'perm-overlay';
+  overlay.innerHTML = `
+    <div class="perm-dialog">
+      <div class="perm-dialog-icon">🕌</div>
+      <h2 class="perm-dialog-title">Izin Diperlukan</h2>
+      <p class="perm-dialog-desc">
+        Aplikasi Al Qur'an As Salam memerlukan izin berikut agar fitur dapat berjalan sempurna:
+      </p>
+      <div class="perm-list">
+        <div class="perm-item">
+          <span class="perm-item-icon">📍</span>
+          <div class="perm-item-info">
+            <strong>Lokasi (GPS)</strong>
+            <span>Untuk Jadwal Shalat & Arah Kiblat</span>
+          </div>
+          <span class="perm-item-status" id="perm-status-geo">⏳</span>
+        </div>
+        <div class="perm-item">
+          <span class="perm-item-icon">🧭</span>
+          <div class="perm-item-info">
+            <strong>Sensor Kompas</strong>
+            <span>Untuk Arah Kiblat yang akurat</span>
+          </div>
+          <span class="perm-item-status" id="perm-status-orient">⏳</span>
+        </div>
+        <div class="perm-item">
+          <span class="perm-item-icon">🎙️</span>
+          <div class="perm-item-info">
+            <strong>Mikrofon</strong>
+            <span>Untuk fitur Simak Hafalan AI</span>
+          </div>
+          <span class="perm-item-status" id="perm-status-mic">⏳</span>
+        </div>
+      </div>
+      <button class="perm-btn-izinkan" id="permBtnIzinkan">
+        Izinkan Semua Akses
+      </button>
+      <button class="perm-btn-skip" id="permBtnSkip">
+        Nanti saja
+      </button>
+      <p class="perm-dialog-note">
+        ℹ️ Izin hanya digunakan dalam aplikasi ini dan tidak dibagikan ke pihak mana pun.
+      </p>
+    </div>`;
+
+  // Style dialog
+  const style = document.createElement('style');
+  style.textContent = `
+    #perm-overlay {
+      position: fixed; inset: 0; z-index: 9998;
+      background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      animation: permFadeIn .3s ease;
+    }
+    @keyframes permFadeIn { from{opacity:0} to{opacity:1} }
+
+    .perm-dialog {
+      background: #fff; border-radius: 24px;
+      padding: 28px 22px; max-width: 360px; width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      animation: permSlideUp .35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes permSlideUp { from{transform:translateY(40px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+    .perm-dialog-icon { font-size: 48px; margin-bottom: 10px; }
+    .perm-dialog-title {
+      font-size: 18px; font-weight: 800;
+      color: #064e3b; margin-bottom: 8px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .perm-dialog-desc {
+      font-size: 13px; color: #4a6352; line-height: 1.6;
+      margin-bottom: 18px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .perm-list {
+      background: #f0fdf4; border-radius: 14px;
+      padding: 4px 0; margin-bottom: 18px;
+      border: 1px solid #b7e4c7;
+    }
+    .perm-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px; text-align: left;
+      border-bottom: 1px solid #d8f3dc;
+    }
+    .perm-item:last-child { border-bottom: none; }
+    .perm-item-icon { font-size: 22px; flex-shrink: 0; }
+    .perm-item-info { flex: 1; }
+    .perm-item-info strong {
+      display: block; font-size: 13px; font-weight: 700;
+      color: #064e3b; font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .perm-item-info span {
+      font-size: 11px; color: #4a6352;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .perm-item-status { font-size: 16px; flex-shrink: 0; }
+
+    .perm-btn-izinkan {
+      width: 100%; padding: 14px;
+      background: linear-gradient(135deg, #064e3b, #059669);
+      color: white; border: none; border-radius: 14px;
+      font-size: 15px; font-weight: 800;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      cursor: pointer; margin-bottom: 10px;
+      box-shadow: 0 6px 20px rgba(6,78,59,0.35);
+      transition: opacity .2s;
+    }
+    .perm-btn-izinkan:active { opacity: .85; }
+
+    .perm-btn-skip {
+      width: 100%; padding: 10px;
+      background: none; border: 1px solid #b7e4c7;
+      border-radius: 12px; color: #4a6352;
+      font-size: 13px; font-weight: 600;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      cursor: pointer; margin-bottom: 14px;
+    }
+    .perm-btn-skip:active { background: #f0fdf4; }
+
+    .perm-dialog-note {
+      font-size: 10px; color: #6b8c7a; line-height: 1.5;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    body.dark .perm-dialog {
+      background: #0f2618; border: 1px solid #1a4a2e;
+    }
+    body.dark .perm-dialog-title { color: #6ee7b7; }
+    body.dark .perm-dialog-desc, body.dark .perm-dialog-note { color: #6ee7b7; }
+    body.dark .perm-list { background: #0a1a12; border-color: #1a4a2e; }
+    body.dark .perm-item { border-color: #1a4a2e; }
+    body.dark .perm-item-info strong { color: #6ee7b7; }
+    body.dark .perm-item-info span  { color: #4a6352; }
+  `;
+  document.head.appendChild(style);
+  document.body.appendChild(overlay);
+
+  document.getElementById('permBtnIzinkan').addEventListener('click', () => {
+    prosesPermissionSatu();
+  });
+
+  document.getElementById('permBtnSkip').addEventListener('click', () => {
+    tutupDialogIzin();
+    // Simpan bahwa sudah ditanya, tapi user skip
+    localStorage.setItem(PERM_KEY, JSON.stringify({ skipped: true, ts: Date.now() }));
+  });
+}
+
+/* Proses minta izin satu per satu berurutan */
+async function prosesPermissionSatu() {
+  const btn = document.getElementById('permBtnIzinkan');
+  if (btn) { btn.disabled = true; btn.textContent = 'Memproses...'; }
+
+  const hasil = { geolocation: 'unknown', orientation: 'unknown', mic: 'unknown' };
+
+  /* ── 1. LOKASI ── */
+  updateStatusItem('perm-status-geo', '⏳ Meminta...');
+  const geoOk = await mintaIzinLokasi();
+  hasil.geolocation = geoOk ? 'granted' : 'denied';
+  updateStatusItem('perm-status-geo', geoOk ? '✅' : '❌');
+
+  /* ── 2. SENSOR ORIENTASI (Kompas) ── */
+  updateStatusItem('perm-status-orient', '⏳ Meminta...');
+  const orientOk = await mintaIzinOrientasi();
+  hasil.orientation = orientOk ? 'granted' : 'denied';
+  updateStatusItem('perm-status-orient', orientOk ? '✅' : '❌');
+
+  /* ── 3. MIKROFON ── */
+  updateStatusItem('perm-status-mic', '⏳ Meminta...');
+  const micOk = await mintaIzinMikrofon();
+  hasil.mic = micOk ? 'granted' : 'denied';
+  updateStatusItem('perm-status-mic', micOk ? '✅' : '❌');
+
+  // Simpan hasil
+  localStorage.setItem(PERM_KEY, JSON.stringify({ ...hasil, ts: Date.now() }));
+
+  // Tunggu sebentar lalu tutup
+  await new Promise(r => setTimeout(r, 1200));
+  tutupDialogIzin();
+
+  // Jika lokasi granted, langsung cache koordinat
+  if (geoOk) preCacheLocation();
+}
+
+/* ── Request Lokasi ── */
+function mintaIzinLokasi() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) { resolve(false); return; }
+
+    // Coba pakai Permissions API dulu (Android Chrome support)
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' })
+        .then(result => {
+          if (result.state === 'granted') { resolve(true); return; }
+          if (result.state === 'denied')  { resolve(false); return; }
+          // 'prompt' → trigger browser dialog
+          navigator.geolocation.getCurrentPosition(
+            () => resolve(true),
+            () => resolve(false),
+            { timeout: 8000, maximumAge: 0 }
+          );
+        })
+        .catch(() => {
+          navigator.geolocation.getCurrentPosition(
+            () => resolve(true),
+            () => resolve(false),
+            { timeout: 8000, maximumAge: 0 }
+          );
+        });
+    } else {
+      navigator.geolocation.getCurrentPosition(
+        () => resolve(true),
+        () => resolve(false),
+        { timeout: 8000, maximumAge: 0 }
+      );
+    }
+  });
+}
+
+/* ── Request Sensor Orientasi (Kompas) ── */
+function mintaIzinOrientasi() {
+  return new Promise((resolve) => {
+    // iOS 13+ butuh explicit permission
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(state => resolve(state === 'granted'))
+        .catch(() => resolve(false));
+    } else if (typeof DeviceMotionEvent !== 'undefined' &&
+               typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission()
+        .then(state => resolve(state === 'granted'))
+        .catch(() => resolve(false));
+    } else if (window.DeviceOrientationEvent) {
+      // Android — cek apakah event bisa diterima
+      let got = false;
+      const handler = () => { got = true; window.removeEventListener('deviceorientation', handler); resolve(true); };
+      window.addEventListener('deviceorientation', handler, { once: true });
+      setTimeout(() => { if (!got) { window.removeEventListener('deviceorientation', handler); resolve(false); } }, 2000);
+    } else {
+      resolve(false);
+    }
+  });
+}
+
+/* ── Request Mikrofon ── */
+function mintaIzinMikrofon() {
+  return new Promise((resolve) => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      // Fallback: cek via Permissions API
+      if (navigator.permissions) {
+        navigator.permissions.query({ name: 'microphone' })
+          .then(r => resolve(r.state === 'granted'))
+          .catch(() => resolve(false));
+      } else {
+        resolve(false);
+      }
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        // Langsung stop stream — hanya perlu izinnya
+        stream.getTracks().forEach(t => t.stop());
+        resolve(true);
+      })
+      .catch(() => resolve(false));
+  });
+}
+
+/* ── Pre-cache koordinat lokasi ── */
+let _cachedLocation = null;
+
+function preCacheLocation() {
+  navigator.geolocation?.getCurrentPosition(
+    pos => {
+      _cachedLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+    },
+    () => {},
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+  );
+}
+
+/* ── Cek status permission yang sudah ada ── */
+async function cekStatusPermission() {
+  if (!navigator.permissions) return;
+  try {
+    const geo = await navigator.permissions.query({ name: 'geolocation' });
+    const mic = await navigator.permissions.query({ name: 'microphone' });
+    const saved = JSON.parse(localStorage.getItem(PERM_KEY) || '{}');
+    saved.geolocation = geo.state;
+    saved.mic         = mic.state;
+    localStorage.setItem(PERM_KEY, JSON.stringify(saved));
+    if (geo.state === 'granted') preCacheLocation();
+  } catch(e) {}
+}
+
+/* ── Update status ikon di dialog ── */
+function updateStatusItem(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
+/* ── Tutup dialog izin ── */
+function tutupDialogIzin() {
+  const overlay = document.getElementById('perm-overlay');
+  if (!overlay) return;
+  overlay.style.opacity    = '0';
+  overlay.style.transition = 'opacity .3s';
+  setTimeout(() => overlay.remove(), 300);
+}
+
+/* showShalatInfo & showQiblatInfo versi baru dengan cached location & permission check */
+function showShalatInfo() {
+  const box = document.getElementById('shalat-content');
+  box.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+    <span class="material-icons" style="font-size:40px;display:block;margin-bottom:12px;color:var(--primary);animation:spin 1.2s linear infinite">refresh</span>
+    <p style="font-size:14px">Mendapatkan lokasi Anda...</p></div>`;
+  switchView('shalat');
+
+  // Gunakan cached location jika ada (lebih cepat)
+  if (_cachedLocation) {
+    fetchAndRenderShalat(_cachedLocation.lat, _cachedLocation.lon);
+    return;
+  }
+
+  if (!navigator.geolocation) {
+    box.innerHTML = renderShalatError('GPS tidak didukung di perangkat ini.');
+    return;
+  }
+
+  // Cek permission dulu sebelum request
+  const tryGet = () => {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        _cachedLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        fetchAndRenderShalat(pos.coords.latitude, pos.coords.longitude);
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          box.innerHTML = renderShalatError(
+            'Izin lokasi ditolak. Buka Pengaturan → Aplikasi → Al Qur\'an As Salam → Izin → Lokasi → Izinkan.'
+          );
+        } else {
+          box.innerHTML = renderShalatError('Gagal mendapatkan lokasi. Pastikan GPS aktif lalu coba lagi.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
+  };
+
+  if (navigator.permissions) {
+    navigator.permissions.query({ name: 'geolocation' }).then(result => {
+      if (result.state === 'denied') {
+        box.innerHTML = renderShalatError(
+          'Izin lokasi ditolak. Buka Pengaturan → Aplikasi → Al Qur\'an As Salam → Izin → Lokasi → Izinkan.'
+        );
+      } else {
+        tryGet();
+      }
+    }).catch(() => tryGet());
+  } else {
+    tryGet();
+  }
+}
+
+function showQiblatInfo() {
+  const box = document.getElementById('qiblat-content');
+  box.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+    <span class="material-icons" style="font-size:40px;display:block;margin-bottom:12px;color:var(--primary);animation:spin 1.2s linear infinite">refresh</span>
+    <p style="font-size:14px">Mendapatkan lokasi Anda...</p></div>`;
+  switchView('qiblat');
+
+  // Gunakan cached location jika ada
+  if (_cachedLocation) {
+    renderQiblat(_cachedLocation.lat, _cachedLocation.lon);
+    return;
+  }
+
+  if (!navigator.geolocation) {
+    box.innerHTML = renderQiblatError('GPS tidak didukung di perangkat ini.');
+    return;
+  }
+
+  const tryGet = () => {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        _cachedLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        renderQiblat(pos.coords.latitude, pos.coords.longitude);
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          box.innerHTML = renderQiblatError(
+            'Izin lokasi ditolak. Buka Pengaturan → Aplikasi → Al Qur\'an As Salam → Izin → Lokasi → Izinkan.'
+          );
+        } else {
+          box.innerHTML = renderQiblatError('Gagal mendapatkan lokasi. Pastikan GPS aktif lalu coba lagi.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
+  };
+
+  if (navigator.permissions) {
+    navigator.permissions.query({ name: 'geolocation' }).then(result => {
+      if (result.state === 'denied') {
+        box.innerHTML = renderQiblatError(
+          'Izin lokasi ditolak. Buka Pengaturan → Aplikasi → Al Qur\'an As Salam → Izin → Lokasi → Izinkan.'
+        );
+      } else {
+        tryGet();
+      }
+    }).catch(() => tryGet());
+  } else {
+    tryGet();
+  }
+}
 
 /* ── APPLY SAVED SETTINGS ─────────────────────────────────── */
 function applySettings(){
@@ -331,126 +784,6 @@ function renderLastRead(){
   card.classList.remove('hidden');
 }
 
-/* ── JADWAL SHALAT ────────────────────────────────────────── */
-function showShalatInfo() {
-  const box = document.getElementById('shalat-content');
-  box.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
-    <span class="material-icons" style="font-size:40px;display:block;margin-bottom:12px;color:var(--primary);animation:spin 1.2s linear infinite">refresh</span>
-    <p style="font-size:14px">Mendapatkan lokasi Anda...</p></div>`;
-  switchView('shalat');
-  if (!navigator.geolocation) { box.innerHTML = renderShalatError('GPS tidak didukung.'); return; }
-  navigator.geolocation.getCurrentPosition(
-    pos => fetchAndRenderShalat(pos.coords.latitude, pos.coords.longitude),
-    () => { box.innerHTML = renderShalatError('Izinkan akses lokasi untuk menampilkan jadwal shalat.'); },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-  );
-}
-
-function renderShalatError(msg) {
-  return `<div style="text-align:center;padding:40px 20px;background:var(--card);border-radius:20px;border:1px solid var(--border)">
-    <span class="material-icons" style="font-size:48px;color:#f59e0b;display:block;margin-bottom:12px">location_off</span>
-    <p style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px">Lokasi Tidak Tersedia</p>
-    <p style="font-size:12px;color:var(--text-muted)">${msg}</p>
-    <button onclick="showShalatInfo()" style="margin-top:16px;background:var(--primary);color:white;border:none;padding:10px 24px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer">Coba Lagi</button>
-  </div>`;
-}
-
-async function fetchAndRenderShalat(lat, lon) {
-  const box = document.getElementById('shalat-content');
-  try {
-    const [timingRes, geoRes] = await Promise.all([
-      fetch(`https://api.aladhan.com/v1/timings?latitude=${lat}&longitude=${lon}&method=11`),
-      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
-    ]);
-    const timingData = await timingRes.json();
-    const geoData    = await geoRes.json();
-    const t     = timingData.data.timings;
-    const date  = timingData.data.date.readable;
-    const hijri = `${timingData.data.date.hijri.day} ${timingData.data.date.hijri.month.en} ${timingData.data.date.hijri.year} H`;
-    const city  = geoData.address?.city || geoData.address?.town || geoData.address?.county || 'Lokasi Anda';
-    const prayers = [
-      { name:'Subuh',   icon:'nights_stay',  time:t.Fajr,    color:'#6366f1' },
-      { name:'Syuruq',  icon:'wb_twilight',  time:t.Sunrise, color:'#f59e0b' },
-      { name:'Dzuhur',  icon:'wb_sunny',     time:t.Dhuhr,   color:'#10b981' },
-      { name:'Ashar',   icon:'light_mode',   time:t.Asr,     color:'#f97316' },
-      { name:'Maghrib', icon:'wb_twilight',  time:t.Maghrib, color:'#ef4444' },
-      { name:'Isya',    icon:'dark_mode',    time:t.Isha,    color:'#8b5cf6' },
-    ];
-    const nextPrayer = getNextPrayer(prayers);
-    box.innerHTML = `
-      <div class="shalat-location-card">
-        <div class="shalat-loc-left">
-          <span class="material-icons" style="color:var(--primary);font-size:20px">location_on</span>
-          <div><p class="shalat-city">${city}</p><p class="shalat-date">${date}</p></div>
-        </div>
-        <div class="shalat-hijri"><span class="material-icons" style="font-size:14px;opacity:0.7">calendar_today</span>${hijri}</div>
-      </div>
-      <div class="shalat-next-card">
-        <div class="shalat-next-label">Waktu Shalat Berikutnya</div>
-        <div class="shalat-next-name">${nextPrayer.name}</div>
-        <div class="shalat-next-time">${nextPrayer.time}</div>
-        <div class="shalat-countdown" id="shalat-countdown">--:--:--</div>
-        <div class="shalat-next-sub">Menghitung mundur...</div>
-      </div>
-      <div class="shalat-grid">
-        ${prayers.map(p => {
-          const isNext = p.name === nextPrayer.name;
-          return `<div class="shalat-item ${isNext?'shalat-item-active':''}">
-            <div class="shalat-item-icon" style="background:${p.color}22;color:${p.color}">
-              <span class="material-icons">${p.icon}</span>
-            </div>
-            <div class="shalat-item-info">
-              <p class="shalat-item-name">${p.name}</p>
-              ${isNext?'<span class="shalat-next-badge">Berikutnya</span>':''}
-            </div>
-            <div class="shalat-item-time" style="color:${isNext?'var(--primary)':'var(--text)'}">${p.time}</div>
-          </div>`;
-        }).join('')}
-      </div>
-      <div class="shalat-method"><span class="material-icons" style="font-size:14px">info_outline</span>Metode: Kementerian Agama Indonesia (MWL)</div>`;
-    startShalatCountdown(nextPrayer.time);
-  } catch(e) {
-    box.innerHTML = renderShalatError('Gagal memuat data. Periksa koneksi internet Anda.');
-  }
-}
-
-function getNextPrayer(prayers) {
-  const now = new Date(), nowMin = now.getHours()*60+now.getMinutes();
-  for(const p of prayers){ const [h,m]=p.time.split(':').map(Number); if(h*60+m>nowMin) return p; }
-  return prayers[0];
-}
-
-function startShalatCountdown(timeStr) {
-  const [targetH, targetM] = timeStr.split(':').map(Number);
-  if(window._shalatTimer) clearInterval(window._shalatTimer);
-  window._shalatTimer = setInterval(() => {
-    const el = document.getElementById('shalat-countdown');
-    if(!el){ clearInterval(window._shalatTimer); window._shalatTimer=null; return; }
-    const now=new Date(); let target=new Date();
-    target.setHours(targetH,targetM,0,0);
-    if(target<=now) target.setDate(target.getDate()+1);
-    const diff=target-now;
-    const hh=String(Math.floor(diff/3600000)).padStart(2,'0');
-    const mm=String(Math.floor((diff%3600000)/60000)).padStart(2,'0');
-    const ss=String(Math.floor((diff%60000)/1000)).padStart(2,'0');
-    el.textContent=`${hh}:${mm}:${ss}`;
-  },1000);
-}
-
-/* ── ARAH QIBLAT ──────────────────────────────────────────── */
-function showQiblatInfo() {
-  const box = document.getElementById('qiblat-content');
-  box.innerHTML=`<div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
-    <span class="material-icons" style="font-size:40px;display:block;margin-bottom:12px;color:var(--primary);animation:spin 1.2s linear infinite">refresh</span>
-    <p style="font-size:14px">Mendapatkan lokasi Anda...</p></div>`;
-  switchView('qiblat');
-  if(!navigator.geolocation){ box.innerHTML=renderQiblatError('GPS tidak didukung.'); return; }
-  navigator.geolocation.getCurrentPosition(
-    pos => renderQiblat(pos.coords.latitude, pos.coords.longitude),
-    () => { box.innerHTML=renderQiblatError('Izinkan akses lokasi.'); },
-    { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
-  );
-}
 
 function renderQiblatError(msg){
   return `<div style="text-align:center;padding:40px 20px;background:var(--card);border-radius:20px;border:1px solid var(--border)">
@@ -1947,30 +2280,923 @@ function renderSimakHistoryIn(container, limit) {
   }).join('');
 }
 
-/* ── Init Simak (dipanggil saat DOMContentLoaded) ─────────── */
+/* ══════════════════════════════════════════════════════════
+   AI GURU TAHFIZH — ENGINE LENGKAP
+   Mode 1: CHAT  — ngobrol tentang hafalan Al-Qur'an
+   Mode 2: SIMAK — menyimak hafalan real-time
+   Terintegrasi dalam satu tampilan
+══════════════════════════════════════════════════════════ */
+
+/* ── State AI Guru ────────────────────────────────────────── */
+const AG = {
+  /* chat */
+  chatHistory    : [],   // [{role:'user'|'ai', text, time}]
+  voiceListening : false,
+  chatRecog      : null,
+
+  /* simak */
+  simakActive    : false,
+  simakPanelOpen : false,
+  surahNum       : 1,
+  ayatAwal       : 1,
+  ayatAkhir      : 7,
+  level          : 'pemula',
+  ayahList       : [],   // [{number, arabic, translation, words:[]}]
+  curIdx         : 0,
+  curWordIdx     : 0,
+  totalAyat      : 0,
+  benar          : 0,
+  salah          : 0,
+  errors         : [],
+  startTime      : null,
+  timerIv        : null,
+  simakRecog     : null,
+  micActive      : false,
+  bantuTimer     : null,
+  modeBantuan    : false,
+  history        : JSON.parse(localStorage.getItem('ag_history') || '[]'),
+};
+
+/* ── Sistem Prompt AI (konteks guru tahfizh) ──────────────── */
+const AG_SYSTEM_PROMPT = `Kamu adalah Ustaz AI, Guru Tahfizh digital yang sangat berpengalaman dan ramah.
+Kamu HANYA membantu dalam bidang:
+- Hafalan Al-Qur'an (surah, ayat, juz, tips menghafal)
+- Tajwid (hukum bacaan, makhraj huruf, mad, ghunnah, dll)
+- Sejarah & keutamaan Al-Qur'an
+- Motivasi & teknik menghafal
+- Doa & adab membaca Al-Qur'an
+- Penafsiran ayat secara umum (bukan fatwa fiqih detail)
+
+Jika ditanya di luar topik tersebut, tolak dengan sopan dan kembalikan ke topik hafalan.
+Jawab dalam Bahasa Indonesia yang santun, hangat, dan memotivasi.
+Gunakan sapaan "Insya Allah", "Alhamdulillah", "MasyaAllah" secara natural.
+Jawaban singkat & padat kecuali diminta penjelasan panjang.
+Jika ada pertanyaan tentang cara hafalan, berikan tips praktis yang konkret.`;
+
+/* ── Inisialisasi AI Guru ─────────────────────────────────── */
 function initSimak() {
   loadTTSVoices();
+  agInitUI();
+}
 
-  const sel = document.getElementById('simakSurahSelect');
-  if (!sel) return;
-  SURAH_DATA.forEach(s => {
-    sel.innerHTML += `<option value="${s.n}">${s.n}. ${s.latin} (${s.ar})</option>`;
+function agInitUI() {
+  /* Populate surah select */
+  const selEl = document.getElementById('agSurahSel');
+  if (selEl) {
+    SURAH_DATA.forEach(s => {
+      selEl.innerHTML += `<option value="${s.n}">${s.n}. ${s.latin}</option>`;
+    });
+    selEl.addEventListener('change', () => {
+      const s = SURAH_DATA[parseInt(selEl.value) - 1];
+      const ak = document.getElementById('agAyatAkhir');
+      if (ak) ak.value = Math.min(parseInt(ak.value) || s.ayat, s.ayat);
+    });
+  }
+
+  /* Tombol mulai/stop simak */
+  document.getElementById('agBtnMulai')?.addEventListener('click', agMulaiSimak);
+  document.getElementById('agBtnStop') ?.addEventListener('click', agHentikanSimak);
+  document.getElementById('agBtnPrev') ?.addEventListener('click', () => agPindahAyat(-1));
+  document.getElementById('agBtnNext') ?.addEventListener('click', () => agPindahAyat(1));
+
+  /* Chat input */
+  const inp  = document.getElementById('agTextInput');
+  const send = document.getElementById('agSendBtn');
+  send?.addEventListener('click', () => agKirimPesan());
+  inp?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); agKirimPesan(); } });
+
+  /* Voice chat button */
+  document.getElementById('agVoiceBtn')?.addEventListener('click', agToggleVoiceChat);
+
+  /* Tampilkan welcome */
+  agTampilkanWelcome();
+}
+
+/* ══════════════════════════════════════════════════════════
+   PANEL SIMAK TOGGLE
+══════════════════════════════════════════════════════════ */
+function agToggleSimakPanel() {
+  const panel = document.getElementById('agSimakPanel');
+  const btn   = document.getElementById('agSimakToggleBtn');
+  const icon  = document.getElementById('agSimakToggleIcon');
+  const lbl   = document.getElementById('agSimakToggleLbl');
+
+  if (!panel) return;
+  AG.simakPanelOpen = !AG.simakPanelOpen;
+  panel.style.display = AG.simakPanelOpen ? 'block' : 'none';
+  btn.classList.toggle('active', AG.simakPanelOpen);
+  icon.textContent = AG.simakPanelOpen ? 'close' : 'mic';
+  lbl.textContent  = AG.simakPanelOpen ? 'Tutup' : 'Simak';
+}
+
+/* ══════════════════════════════════════════════════════════
+   CHAT — Ngobrol dengan AI Guru
+══════════════════════════════════════════════════════════ */
+function agTampilkanWelcome() {
+  const chat = document.getElementById('agChat');
+  if (!chat) return;
+  chat.innerHTML = `
+    <div class="ag-welcome">
+      <span class="ag-welcome-icon">🕌</span>
+      <strong>Assalamu'alaikum! Saya Ustaz AI</strong>
+      Guru Tahfizh digital Anda. Saya siap membantu hafalan Al-Qur'an, tajwid, dan semua hal seputar menghafal.
+      <div class="ag-chips">
+        <div class="ag-chip" onclick="agKirimPesan('Tips menghafal Al-Qur\'an yang efektif')">💡 Tips Hafalan</div>
+        <div class="ag-chip" onclick="agKirimPesan('Jelaskan hukum nun mati')">📖 Hukum Tajwid</div>
+        <div class="ag-chip" onclick="agKirimPesan('Keutamaan menghafal Al-Qur\'an')">⭐ Keutamaan</div>
+        <div class="ag-chip" onclick="agKirimPesan('Bagaimana cara murajaah yang baik?')">🔄 Murajaah</div>
+        <div class="ag-chip" onclick="agKirimPesan('Doa sebelum membaca Al-Qur\'an')">🤲 Doa</div>
+        <div class="ag-chip" onclick="agToggleSimakPanel()">🎙️ Mulai Simak</div>
+      </div>
+    </div>`;
+}
+
+async function agKirimPesan(teksOverride) {
+  const inp  = document.getElementById('agTextInput');
+  const teks = (teksOverride || inp?.value || '').trim();
+  if (!teks) return;
+  if (inp) inp.value = '';
+
+  /* Tampilkan bubble user */
+  agTambahBubble('user', teks);
+  AG.chatHistory.push({ role: 'user', text: teks });
+
+  /* Hapus welcome jika masih ada */
+  const welcome = document.querySelector('.ag-welcome');
+  if (welcome) welcome.remove();
+
+  /* Typing indicator */
+  const typingId = agTampilkanTyping();
+
+  try {
+    const balasan = await agTanyaAI(teks);
+    agHapusTyping(typingId);
+    agTambahBubble('ai', balasan);
+    AG.chatHistory.push({ role: 'ai', text: balasan });
+
+    /* TTS balasan AI (suara laki-laki, pelan) */
+    agUcapkan(balasan);
+  } catch (e) {
+    agHapusTyping(typingId);
+    agTambahBubble('ai', 'Maaf, saya tidak dapat menjawab saat ini. Periksa koneksi internet Anda.');
+  }
+}
+
+/* Panggil Anthropic API */
+async function agTanyaAI(pertanyaan) {
+  /* Bangun pesan dengan histori (max 6 pesan terakhir) */
+  const histori = AG.chatHistory.slice(-6).map(m => ({
+    role   : m.role === 'user' ? 'user' : 'assistant',
+    content: m.text,
+  }));
+
+  /* Tambah pesan saat ini */
+  histori.push({ role: 'user', content: pertanyaan });
+
+  const res  = await fetch('https://api.anthropic.com/v1/messages', {
+    method : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body   : JSON.stringify({
+      model      : 'claude-sonnet-4-6',
+      max_tokens : 1000,
+      system     : AG_SYSTEM_PROMPT,
+      messages   : histori,
+    }),
   });
 
-  sel.addEventListener('change', () => {
-    const s = SURAH_DATA[parseInt(sel.value) - 1];
-    const aw = document.getElementById('simakAyatAwal');
-    const ak = document.getElementById('simakAyatAkhir');
-    if (aw) aw.max = s.ayat;
-    if (ak) { ak.max = s.ayat; ak.value = Math.min(parseInt(ak.value)||s.ayat, s.ayat); }
+  if (!res.ok) throw new Error('API error: ' + res.status);
+  const data = await res.json();
+  return data.content?.[0]?.text || 'Maaf, tidak ada respons.';
+}
+
+/* Tambah bubble chat */
+function agTambahBubble(role, teks) {
+  const chat = document.getElementById('agChat');
+  if (!chat) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = `ag-bubble-wrap ${role}`;
+
+  const now  = new Date();
+  const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  if (role === 'ai') {
+    wrap.innerHTML = `
+      <div class="ag-bubble-avatar"><span class="material-icons">record_voice_over</span></div>
+      <div>
+        <div class="ag-bubble ai">${teks.replace(/\n/g,'<br>')}</div>
+        <div class="ag-bubble-time">${time}</div>
+      </div>`;
+  } else {
+    wrap.innerHTML = `
+      <div>
+        <div class="ag-bubble user">${teks.replace(/\n/g,'<br>')}</div>
+        <div class="ag-bubble-time">${time}</div>
+      </div>`;
+  }
+
+  chat.appendChild(wrap);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function agTambahBubbleSystem(teks) {
+  const chat = document.getElementById('agChat');
+  if (!chat) return;
+  const div = document.createElement('div');
+  div.className = 'ag-bubble-wrap';
+  div.innerHTML = `<div class="ag-bubble system">${teks}</div>`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+/* Typing indicator */
+let _agTypingCounter = 0;
+function agTampilkanTyping() {
+  const chat = document.getElementById('agChat');
+  if (!chat) return null;
+  const id   = 'ag-typing-' + (++_agTypingCounter);
+  const wrap = document.createElement('div');
+  wrap.className = 'ag-bubble-wrap';
+  wrap.id = id;
+  wrap.innerHTML = `
+    <div class="ag-bubble-avatar"><span class="material-icons">record_voice_over</span></div>
+    <div class="ag-typing"><span></span><span></span><span></span></div>`;
+  chat.appendChild(wrap);
+  chat.scrollTop = chat.scrollHeight;
+  return id;
+}
+
+function agHapusTyping(id) {
+  if (id) document.getElementById(id)?.remove();
+}
+
+/* ── Voice Chat (tanya AI dengan suara) ───────────────────── */
+function agToggleVoiceChat() {
+  const btn  = document.getElementById('agVoiceBtn');
+  if (AG.voiceListening) {
+    AG.voiceListening = false;
+    try { AG.chatRecog?.stop(); } catch(e) {}
+    btn?.classList.remove('recording');
+    return;
+  }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('Browser tidak mendukung pengenalan suara. Gunakan Chrome.'); return; }
+
+  AG.voiceListening = true;
+  btn?.classList.add('recording');
+
+  const rec       = new SR();
+  rec.lang        = 'id-ID';  // Chat dalam bahasa Indonesia
+  rec.continuous  = false;
+  rec.interimResults = false;
+  AG.chatRecog    = rec;
+
+  rec.onresult = (e) => {
+    const teks = e.results[0][0].transcript;
+    document.getElementById('agTextInput').value = teks;
+    agKirimPesan();
+  };
+  rec.onend = () => {
+    AG.voiceListening = false;
+    btn?.classList.remove('recording');
+  };
+  rec.onerror = () => {
+    AG.voiceListening = false;
+    btn?.classList.remove('recording');
+  };
+
+  try { rec.start(); } catch(e) {}
+}
+
+/* ══════════════════════════════════════════════════════════
+   SIMAK HAFALAN — Menyimak hafalan real-time
+══════════════════════════════════════════════════════════ */
+
+/* ── Mulai Sesi Simak ─────────────────────────────────────── */
+async function agMulaiSimak() {
+  const surahNum  = parseInt(document.getElementById('agSurahSel')?.value || 1);
+  const ayatAwal  = parseInt(document.getElementById('agAyatAwal')?.value || 1);
+  const ayatAkhir = parseInt(document.getElementById('agAyatAkhir')?.value || 7);
+  const level     = document.getElementById('agLevelSel')?.value || 'pemula';
+
+  if (ayatAwal > ayatAkhir) {
+    agTambahBubble('ai', 'Maaf, ayat awal tidak boleh lebih besar dari ayat akhir. 😊');
+    return;
+  }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    agTambahBubble('ai', 'Browser Anda tidak mendukung pengenalan suara. Gunakan Google Chrome atau Edge terbaru.');
+    return;
+  }
+
+  /* Update status */
+  agSetStatus('Memuat data ayat...');
+  document.getElementById('agBtnMulai').disabled = true;
+  agSetOrb('thinking');
+
+  try {
+    const allData  = await fetchAyahData(surahNum);
+    const filtered = allData.filter(a => a.number >= ayatAwal && a.number <= ayatAkhir);
+
+    if (!filtered.length) throw new Error('Tidak ada ayat');
+
+    AG.ayahList    = filtered.map(a => ({
+      number     : a.number,
+      arabic     : a.arabic,
+      translation: a.translation,
+      words      : a.arabic.split(/\s+/).filter(w => w.trim()),
+    }));
+
+    AG.surahNum  = surahNum;
+    AG.ayatAwal  = ayatAwal;
+    AG.ayatAkhir = ayatAkhir;
+    AG.level     = level;
+    AG.curIdx    = 0;
+    AG.curWordIdx= 0;
+    AG.totalAyat = filtered.length;
+    AG.benar     = 0;
+    AG.salah     = 0;
+    AG.errors    = [];
+    AG.startTime = Date.now();
+    AG.simakActive  = true;
+    AG.modeBantuan  = false;
+
+    /* Tampilkan UI sesi */
+    document.getElementById('agSetupBar').classList.add('hidden');
+    document.getElementById('agSesiAktif').classList.remove('hidden');
+    document.getElementById('agLaporan').classList.add('hidden');
+    document.getElementById('agBtnMulai').disabled = false;
+
+    /* Update chat - beri tahu user simak dimulai */
+    const sn = SURAH_DATA[surahNum - 1];
+    agTambahBubbleSystem(`🎙️ Sesi simak dimulai — ${sn.latin} (${sn.ar}) Ayat ${ayatAwal}–${ayatAkhir}`);
+
+    /* Render ayat pertama */
+    agRenderAyat(0);
+    agUpdateStats();
+    agStartTimer();
+
+    setTimeout(() => agStartSimakRecognition(), 400);
+
+  } catch(e) {
+    agSetOrb('idle');
+    agSetStatus('Gagal memuat. Periksa koneksi internet.');
+    document.getElementById('agBtnMulai').disabled = false;
+  }
+}
+
+/* ── Speech Recognition untuk Simak ──────────────────────── */
+function agStartSimakRecognition() {
+  if (!AG.simakActive) return;
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
+
+  if (AG.simakRecog) {
+    try { AG.simakRecog.stop(); } catch(e) {}
+    AG.simakRecog = null;
+  }
+
+  const rec           = new SR();
+  rec.lang            = 'ar-SA'; // Arab Saudi untuk bacaan Qur'an
+  rec.continuous      = true;
+  rec.interimResults  = true;
+  rec.maxAlternatives = 5;
+  AG.simakRecog       = rec;
+
+  rec.onstart = () => {
+    AG.micActive = true;
+    agSetOrb('listening');
+
+    const ayah = AG.ayahList[AG.curIdx];
+    const kata  = ayah?.words[AG.curWordIdx] || '';
+    agSetStatus('Mendengarkan hafalan...');
+    document.getElementById('agOrbSub').textContent =
+      kata ? `Lanjutkan dari: ${kata}` : 'Bacalah dengan tartil';
+
+    /* Mulai timer bantuan 15 detik */
+    agResetBantuTimer();
+  };
+
+  rec.onresult = (event) => {
+    let finalText = '', interimText = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const t = event.results[i][0].transcript;
+      if (event.results[i].isFinal) finalText   += t;
+      else                           interimText += t;
+    }
+
+    /* Tampilkan transcript */
+    const tEl = document.getElementById('agTranscript');
+    if (tEl) {
+      tEl.innerHTML = finalText
+        ? `<span style="color:var(--text)">${finalText}</span>`
+        : `<span style="color:var(--text-muted)">${interimText}</span>`;
+    }
+
+    if (!finalText.trim()) return;
+
+    /* Reset timer karena ada suara */
+    agResetBantuTimer();
+    AG.lastTranscript = finalText.trim();
+
+    /* Mode bantuan: cek jawaban iya/tidak */
+    if (AG.modeBantuan) {
+      agCekJawabanBantuan(finalText.trim());
+      return;
+    }
+
+    /* Proses hafalan */
+    agProsesHafalan(finalText.trim());
+  };
+
+  rec.onerror = (e) => {
+    if (e.error === 'no-speech' || e.error === 'aborted') return;
+    if (AG.simakActive) setTimeout(() => agStartSimakRecognition(), 800);
+  };
+
+  rec.onend = () => {
+    AG.micActive = false;
+    if (AG.simakActive && !AG.modeBantuan) {
+      setTimeout(() => agStartSimakRecognition(), 150);
+    }
+  };
+
+  try { rec.start(); } catch(e) { console.warn('[agSR]', e); }
+}
+
+/* ── Proses Hafalan — AI Diam Jika Benar ─────────────────── */
+function agProsesHafalan(heard) {
+  if (!AG.simakActive || !AG.ayahList.length) return;
+
+  const ayah      = AG.ayahList[AG.curIdx];
+  if (!ayah) return;
+
+  const heardNorm = normalizeArabic(heard);
+  const heardWords= heardNorm.split(/\s+/).filter(w => w.length > 0);
+  const threshold = agGetThreshold();
+  let   wPtr      = AG.curWordIdx;
+  let   adaSalah  = false;
+  let   salahIdx  = -1;
+
+  for (let hi = 0; hi < heardWords.length; hi++) {
+    if (wPtr >= ayah.words.length) break;
+
+    const hw       = heardWords[hi];
+    const expected = ayah.words[wPtr];
+    const sim      = calcSimilarity(hw, expected);
+
+    if (sim >= threshold) {
+      /* ✅ BENAR — AI DIAM */
+      agHighlightWord(AG.curIdx, wPtr, 'correct');
+      AG.benar++;
+      wPtr++;
+    } else {
+      /* ❌ SALAH */
+      agHighlightWord(AG.curIdx, wPtr, 'wrong');
+      AG.salah++;
+      AG.errors.push({ ayah: ayah.number, wordIdx: wPtr, expected, heard, sim });
+
+      if (!adaSalah) { adaSalah = true; salahIdx = wPtr; }
+      wPtr++;
+    }
+  }
+
+  AG.curWordIdx = wPtr;
+  agUpdateStats();
+
+  if (wPtr < ayah.words.length) {
+    agHighlightWord(AG.curIdx, wPtr, 'current');
+  }
+
+  /* ── Kondisi 1: Ada kesalahan → AI tegur via chat ── */
+  if (adaSalah) {
+    agSetOrb('wrong');
+
+    const respon = agPilihRespon('hafalanSalah');
+    const kataYangSalah = ayah.words[salahIdx] || '';
+
+    /* Tambah ke chat (bukan hanya suara) */
+    agTambahBubble('ai', `${respon}\n\n*Kata yang perlu diulang:* ${kataYangSalah}`);
+    agUcapkan(respon, () => {
+      if (!AG.simakActive) return;
+      AG.curWordIdx = salahIdx;
+      agHighlightWord(AG.curIdx, salahIdx, 'current');
+      agSetOrb('listening');
+      agSetStatus('Ulangi dari kata yang salah');
+      agResetBantuTimer();
+    });
+    return;
+  }
+
+  /* ── Ayat selesai ── */
+  if (wPtr >= ayah.words.length) {
+    agAyatSelesai(AG.curIdx);
+  }
+}
+
+/* ── Ayat Selesai — Lanjut Otomatis, AI Diam ─────────────── */
+function agAyatSelesai(idx) {
+  const ayah    = AG.ayahList[idx];
+  const nextIdx = idx + 1;
+  const adaLagi = nextIdx < AG.totalAyat;
+
+  /* Log di chat (tanpa suara) */
+  agTambahBubbleSystem(`✅ Ayat ${ayah.number} selesai`);
+
+  /* Progress */
+  const pct = Math.round(((idx + 1) / AG.totalAyat) * 100);
+  const pf  = document.getElementById('agProgFill');
+  if (pf) pf.style.width = pct + '%';
+
+  if (adaLagi) {
+    setTimeout(() => {
+      if (!AG.simakActive) return;
+      AG.curIdx     = nextIdx;
+      AG.curWordIdx = 0;
+      agRenderAyat(nextIdx);
+      agHighlightWord(nextIdx, 0, 'current');
+      agSetOrb('listening');
+      agSetStatus('Mendengarkan...');
+      agResetBantuTimer();
+    }, 500);
+  } else {
+    setTimeout(() => agSelesaiSimak(), 800);
+  }
+}
+
+/* ── Timer Bantuan 15 Detik ───────────────────────────────── */
+function agResetBantuTimer() {
+  clearTimeout(AG.bantuTimer);
+  if (!AG.simakActive) return;
+
+  AG.bantuTimer = setTimeout(() => {
+    if (!AG.simakActive || AG.modeBantuan) return;
+    agTanyaBantuan();
+  }, 15000);
+}
+
+function agTanyaBantuan() {
+  AG.modeBantuan = true;
+  const ayah = AG.ayahList[AG.curIdx];
+
+  agSetOrb('thinking');
+  agSetStatus('Menunggu jawaban...');
+
+  /* Tampilkan di chat sebagai bubble khusus */
+  const chat = document.getElementById('agChat');
+  if (chat) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ag-bubble-wrap';
+    wrap.id = 'agBantuanBubble';
+    wrap.innerHTML = `
+      <div class="ag-bubble-avatar"><span class="material-icons">record_voice_over</span></div>
+      <div style="max-width:85%">
+        <div class="ag-bantuan-bubble">
+          <p class="ag-bantuan-q">💬 <em>Maaf, apakah boleh saya bantu?</em></p>
+          <div class="ag-bantuan-btns">
+            <button class="ag-bantuan-iya" onclick="agJawabanBantuan(true)">
+              <span class="material-icons">play_circle</span> Ya, putarkan
+            </button>
+            <button class="ag-bantuan-tidak" onclick="agJawabanBantuan(false)">
+              <span class="material-icons">mic</span> Tidak, lanjut
+            </button>
+          </div>
+          <p class="ag-bantuan-hint">Atau ucapkan "iya" / "tidak"</p>
+        </div>
+      </div>`;
+    chat.appendChild(wrap);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  agUcapkan('Maaf, apakah boleh saya bantu?');
+
+  /* Timeout 10 detik jika tidak ada jawaban */
+  AG.silenceTimer = setTimeout(() => {
+    if (AG.modeBantuan && AG.simakActive) agJawabanBantuan(false);
+  }, 10000);
+}
+
+function agCekJawabanBantuan(heard) {
+  const h       = heard.toLowerCase().trim();
+  const kataIya = ['iya','ya','boleh','mau','tolong','bantu','ok','oke','silakan','putar'];
+  const kataTdk = ['tidak','jangan','no','nggak','gak','belum','lanjut','sendiri'];
+
+  if (kataIya.some(k => h.includes(k))) { agJawabanBantuan(true);  return; }
+  if (kataTdk.some(k => h.includes(k))) { agJawabanBantuan(false); return; }
+}
+
+function agJawabanBantuan(iya) {
+  clearTimeout(AG.silenceTimer);
+  clearTimeout(AG.bantuTimer);
+  AG.modeBantuan = false;
+
+  /* Hapus bubble bantuan */
+  document.getElementById('agBantuanBubble')?.remove();
+
+  if (iya) {
+    const ayah   = AG.ayahList[AG.curIdx];
+    const surahS = SURAH_DATA[AG.surahNum - 1];
+    const ayahN  = ayah?.number || 1;
+
+    agSetOrb('correct');
+    agSetStatus('Memutar murottal...');
+    agTambahBubble('ai', `Baik, saya putarkan Ayat ${ayahN} dari Surah ${surahS.latin} agar Anda bisa menyimaknya. 🎵`);
+
+    agUcapkan(`Baik, saya putarkan ayat ${ayahN}`, () => {
+      if (!AG.simakActive) return;
+
+      /* Putar audio via player utama */
+      _audioIntentionalStop = false;
+      const url = audioUrl(AG.surahNum, ayahN);
+      audio.src = url;
+      audio.play().catch(() => {});
+      updatePlayerTitle(`${surahS.latin} · Ayat ${ayahN} (Bantuan)`);
+      document.getElementById('audio-player-sub').textContent = surahS.ar;
+      showPlayer();
+
+      const onEnd = () => {
+        audio.removeEventListener('ended', onEnd);
+        if (!AG.simakActive) return;
+
+        agTambahBubble('ai', 'Silakan ulangi hafalan ayat tersebut. Insya Allah bisa! 💪');
+        agUcapkan('Silakan ulangi hafalannya', () => {
+          AG.curWordIdx = 0;
+          agRenderAyat(AG.curIdx);
+          agHighlightWord(AG.curIdx, 0, 'current');
+          agSetOrb('listening');
+          agSetStatus('Mendengarkan...');
+
+          /* Reset transcript */
+          const tEl = document.getElementById('agTranscript');
+          if (tEl) tEl.innerHTML = '<span class="ag-transcript-ph">Yang didengar AI akan muncul di sini...</span>';
+
+          setTimeout(() => { if (AG.simakActive) agResetBantuTimer(); }, 1000);
+        });
+      };
+      audio.addEventListener('ended', onEnd);
+    });
+
+  } else {
+    agTambahBubble('ai', 'Baik, silakan lanjutkan ketika sudah siap. Semangat! 💪');
+    agUcapkan('Baik, silakan lanjutkan ketika sudah siap.', () => {
+      agSetOrb('listening');
+      agSetStatus('Mendengarkan...');
+      setTimeout(() => { if (AG.simakActive) agResetBantuTimer(); }, 500);
+    });
+  }
+}
+
+/* ── Selesai Simak ────────────────────────────────────────── */
+function agHentikanSimak() {
+  agSelesaiSimak();
+}
+
+function agSelesaiSimak() {
+  AG.simakActive  = false;
+  AG.modeBantuan  = false;
+  clearTimeout(AG.bantuTimer);
+  clearTimeout(AG.silenceTimer);
+  clearInterval(AG.timerIv);
+
+  try { AG.simakRecog?.stop(); } catch(e) {}
+  AG.micActive = false;
+
+  agSetOrb('idle');
+
+  const totalKata = AG.ayahList.reduce((s, a) => s + a.words.length, 0);
+  const skor      = totalKata > 0
+    ? Math.max(0, Math.round((AG.benar / Math.max(AG.benar + AG.salah, 1)) * 100))
+    : 100;
+  const durasi    = Math.round((Date.now() - AG.startTime) / 1000);
+  const surahName = SURAH_DATA[AG.surahNum - 1].latin;
+
+  /* Simpan riwayat */
+  AG.history.unshift({
+    date: new Date().toLocaleDateString('id-ID'),
+    time: new Date().toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'}),
+    surah: surahName, ayat: `${AG.ayatAwal}–${AG.ayatAkhir}`,
+    skor, benar: AG.benar, salah: AG.salah, durasi, level: AG.level,
   });
+  if (AG.history.length > 20) AG.history = AG.history.slice(0, 20);
+  localStorage.setItem('ag_history', JSON.stringify(AG.history));
 
-  document.getElementById('simakBtnStart')?.addEventListener('click', mulaiSimak);
-  document.getElementById('simakBtnStop')?.addEventListener('click', hentikanSimak);
-  document.getElementById('simakBtnPrev')?.addEventListener('click', () => simakPindahAyat(-1));
-  document.getElementById('simakBtnNext')?.addEventListener('click', () => simakPindahAyat(1));
+  /* Update chat */
+  const grade = skor >= 95 ? 'Mumtaz 🌟' : skor >= 85 ? 'Jayyid Jiddan ✨' :
+                skor >= 75 ? 'Jayyid 👍'  : skor >= 60 ? 'Maqbul 📗' : 'Perlu Latihan 📖';
+  const mm    = String(Math.floor(durasi/60)).padStart(2,'0');
+  const ss    = String(durasi%60).padStart(2,'0');
 
-  renderSimakHistory();
+  agTambahBubble('ai',
+    `Alhamdulillah, sesi selesai! 🎉\n\n` +
+    `📊 *Hasil Simak:*\n` +
+    `• Surah: ${surahName} Ayat ${AG.ayatAwal}–${AG.ayatAkhir}\n` +
+    `• Nilai: *${skor}% — ${grade}*\n` +
+    `• Kata Benar: ${AG.benar} | Kesalahan: ${AG.salah}\n` +
+    `• Durasi: ${mm}:${ss}\n\n` +
+    (AG.errors.length === 0
+      ? 'MasyaAllah! Tidak ada kesalahan. Pertahankan! 💪'
+      : `Kata yang perlu dilatih:\n${AG.errors.slice(0,5).map(e => `• Ayat ${e.ayah}: ${e.expected}`).join('\n')}`)
+  );
+
+  agUcapkan(`Alhamdulillah sesi selesai. Nilai Anda ${skor} persen. ${grade}`);
+
+  /* Tampilkan laporan di panel simak */
+  agTampilkanLaporan(skor, durasi, grade);
+}
+
+/* ── Laporan di panel simak ───────────────────────────────── */
+function agTampilkanLaporan(skor, durasi, grade) {
+  document.getElementById('agSesiAktif').classList.add('hidden');
+  document.getElementById('agLaporan').classList.remove('hidden');
+
+  const arc = document.getElementById('agScoreArc');
+  if (arc) {
+    arc.style.transition   = 'stroke-dashoffset 1.2s ease';
+    arc.style.stroke       = skor >= 90 ? '#16a34a' : skor >= 70 ? '#d97706' : '#dc2626';
+    setTimeout(() => { arc.style.strokeDashoffset = 314 - (skor / 100) * 314; }, 100);
+  }
+
+  const el = document.getElementById('agScoreNum');
+  if (el) el.textContent = skor + '%';
+
+  const grEl = document.getElementById('agLaporanGrade');
+  if (grEl) grEl.textContent = grade;
+
+  const mm  = String(Math.floor(durasi/60)).padStart(2,'0');
+  const ss  = String(durasi%60).padStart(2,'0');
+  const stEl = document.getElementById('agLaporanStats');
+  if (stEl) stEl.innerHTML =
+    `Benar: ${AG.benar} kata<br>Salah: ${AG.salah} kata<br>Durasi: ${mm}:${ss}<br>Level: ${AG.level}`;
+
+  const errEl = document.getElementById('agLaporanErrors');
+  if (errEl) {
+    if (!AG.errors.length) {
+      errEl.innerHTML = '<p style="color:#16a34a;font-weight:700;text-align:center;padding:8px">🎉 Tidak ada kesalahan!</p>';
+    } else {
+      const uniq = [], seen = new Set();
+      AG.errors.forEach(e => { const k=`${e.ayah}-${e.wordIdx}`; if(!seen.has(k)){seen.add(k);uniq.push(e);} });
+      errEl.innerHTML = uniq.slice(0,5).map(e => `
+        <div class="ag-err-item">
+          <div class="ag-err-hd">Ayat ${e.ayah} · Kata ke-${e.wordIdx+1}</div>
+          <div class="ag-err-arab">${e.expected}</div>
+        </div>`).join('');
+    }
+  }
+}
+
+function agResetSimak() {
+  document.getElementById('agLaporan').classList.add('hidden');
+  document.getElementById('agSesiAktif').classList.add('hidden');
+  document.getElementById('agSetupBar').classList.remove('hidden');
+  agSetOrb('idle');
+  agSetStatus('Siap membantu • ketik atau tekan mic');
+  /* Reset transcript */
+  const tEl = document.getElementById('agTranscript');
+  if (tEl) tEl.innerHTML = '<span class="ag-transcript-ph">Yang didengar AI akan muncul di sini...</span>';
+}
+
+/* ── Render Ayat ──────────────────────────────────────────── */
+function agRenderAyat(idx) {
+  if (!AG.ayahList.length) return;
+  const ayah   = AG.ayahList[idx];
+  const surahS = SURAH_DATA[AG.surahNum - 1];
+
+  const lbl = document.getElementById('agAyatLbl');
+  if (lbl) lbl.textContent = `Ayat ${ayah.number} · ${surahS.latin}`;
+
+  const arabEl = document.getElementById('agArabicText');
+  if (arabEl) {
+    arabEl.innerHTML = ayah.words.map((w, i) => {
+      let cls = 'ag-word pending';
+      if (i < AG.curWordIdx)  cls = 'ag-word correct';
+      if (i === AG.curWordIdx) cls = 'ag-word current';
+      return `<span class="${cls}" id="agw-${idx}-${i}">${w}</span> `;
+    }).join('');
+  }
+
+  const transEl = document.getElementById('agTransText');
+  if (transEl) transEl.textContent = ayah.translation;
+
+  const prev = document.getElementById('agBtnPrev');
+  const next = document.getElementById('agBtnNext');
+  if (prev) prev.disabled = idx === 0;
+  if (next) next.disabled = idx >= AG.totalAyat - 1;
+}
+
+function agHighlightWord(ayatIdx, wordIdx, state) {
+  const span = document.getElementById(`agw-${ayatIdx}-${wordIdx}`);
+  if (!span) return;
+  span.className = `ag-word ${state}`;
+  if (state === 'current') span.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function agPindahAyat(dir) {
+  if (!AG.simakActive) return;
+  const ni = AG.curIdx + dir;
+  if (ni < 0 || ni >= AG.totalAyat) return;
+  AG.curIdx     = ni;
+  AG.curWordIdx = 0;
+  agRenderAyat(ni);
+  agHighlightWord(ni, 0, 'current');
+  agResetBantuTimer();
+}
+
+/* ── UI Helpers ───────────────────────────────────────────── */
+function agSetOrb(state) {
+  const orb  = document.getElementById('agOrb');
+  const icon = document.getElementById('agOrbIcon');
+  if (!orb) return;
+  orb.className = `ag-orb ${state}`;
+  const iconMap = { idle:'record_voice_over', listening:'mic', correct:'check_circle', wrong:'cancel', thinking:'psychology' };
+  if (icon) icon.textContent = iconMap[state] || 'mic';
+
+  /* Sync avatar header */
+  const av = document.getElementById('agAvatar');
+  if (av) {
+    av.className = `ag-avatar${state === 'listening' ? ' listening' : state === 'thinking' ? ' speaking' : ''}`;
+  }
+}
+
+function agSetStatus(txt) {
+  const el = document.getElementById('agStatus');
+  if (el) el.textContent = txt;
+}
+
+function agUpdateStats() {
+  const el = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+  el('ss-benar', `✓ ${AG.benar}`);
+  el('ss-salah',  `✗ ${AG.salah}`);
+  el('ss-ayat',  `Ayat ${AG.curIdx + 1}/${AG.totalAyat}`);
+}
+
+function agStartTimer() {
+  clearInterval(AG.timerIv);
+  AG.timerIv = setInterval(() => {
+    if (!AG.simakActive) return;
+    const e = Math.floor((Date.now() - AG.startTime) / 1000);
+    const mm = String(Math.floor(e/60)).padStart(2,'0');
+    const ss = String(e%60).padStart(2,'0');
+    const el = document.getElementById('ss-timer');
+    if (el) el.textContent = `${mm}:${ss}`;
+  }, 1000);
+}
+
+/* ── TTS Suara Laki-laki ──────────────────────────────────── */
+function agUcapkan(teks, onDone) {
+  if (!teks || !('speechSynthesis' in window)) { onDone?.(); return; }
+
+  window.speechSynthesis.cancel();
+
+  /* Pause simak mic agar tidak tangkap suara AI */
+  if (AG.simakRecog && AG.micActive) {
+    try { AG.simakRecog.stop(); } catch(e) {}
+  }
+
+  const utt    = new SpeechSynthesisUtterance(teks);
+  utt.lang     = 'id-ID';
+  utt.rate     = 0.92;
+  utt.pitch    = 0.85; // Suara laki-laki
+  utt.volume   = 1.0;
+
+  const voices  = window.speechSynthesis.getVoices();
+  const idVoice = voices.find(v => v.lang === 'id-ID') || voices.find(v => v.lang.startsWith('id'));
+  if (idVoice) utt.voice = idVoice;
+
+  utt.onend = () => {
+    onDone?.();
+    if (AG.simakActive && !AG.micActive) {
+      setTimeout(() => agStartSimakRecognition(), 250);
+    }
+  };
+  utt.onerror = () => {
+    onDone?.();
+    if (AG.simakActive && !AG.micActive) {
+      setTimeout(() => agStartSimakRecognition(), 250);
+    }
+  };
+
+  window.speechSynthesis.speak(utt);
+}
+
+/* ── Pilih respon acak ────────────────────────────────────── */
+const AG_RESPON = {
+  hafalanSalah: [
+    'Maaf, ada bacaan yang kurang tepat. Silakan ulangi bagian terakhir.',
+    'Ada satu kata yang berbeda. Coba ulangi ayat tersebut.',
+    'Maaf, bacaan kurang sesuai. Silakan ulangi.',
+  ],
+};
+
+function agPilihRespon(cat) {
+  const list = AG_RESPON[cat] || ['Maaf, ada yang kurang tepat. Silakan ulangi.'];
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function agGetThreshold() {
+  return { pemula: 0.50, menengah: 0.60, mahir: 0.72, guru: 0.85 }[AG.level] || 0.60;
 }
 
 /* ── GLOBAL EXPORTS ───────────────────────────────────────── */
@@ -1982,11 +3208,14 @@ window.toggleBookmark      = toggleBookmark;
 window.deleteBookmark      = deleteBookmark;
 window.showShalatInfo      = showShalatInfo;
 window.showQiblatInfo      = showQiblatInfo;
-window.resetSimakSession   = resetSimakSession;
-window.jawabanBantuan      = jawabanBantuan;
+window.agToggleSimakPanel  = agToggleSimakPanel;
+window.agJawabanBantuan    = agJawabanBantuan;
+window.agResetSimak        = agResetSimak;
 window.showDownloadPanel   = showDownloadPanel;
 window.playOnlineSurahQari = playOnlineSurahQari;
 window.playOnlineAyah      = playOnlineAyah;
 window.downloadAyahDirect  = downloadAyahDirect;
 window.downloadSingleAyah  = downloadSingleAyah;
 window.downloadFullSurah   = downloadFullSurah;
+window.mintaIzinProaktif   = mintaIzinProaktif;
+

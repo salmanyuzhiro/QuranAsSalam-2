@@ -2318,21 +2318,6 @@ const AG = {
 };
 
 /* ── Sistem Prompt AI (konteks guru tahfizh) ──────────────── */
-const AG_SYSTEM_PROMPT = `Kamu adalah Ustaz AI, Guru Tahfizh digital yang sangat berpengalaman dan ramah.
-Kamu HANYA membantu dalam bidang:
-- Hafalan Al-Qur'an (surah, ayat, juz, tips menghafal)
-- Tajwid (hukum bacaan, makhraj huruf, mad, ghunnah, dll)
-- Sejarah & keutamaan Al-Qur'an
-- Motivasi & teknik menghafal
-- Doa & adab membaca Al-Qur'an
-- Penafsiran ayat secara umum (bukan fatwa fiqih detail)
-
-Jika ditanya di luar topik tersebut, tolak dengan sopan dan kembalikan ke topik hafalan.
-Jawab dalam Bahasa Indonesia yang santun, hangat, dan memotivasi.
-Gunakan sapaan "Insya Allah", "Alhamdulillah", "MasyaAllah" secara natural.
-Jawaban singkat & padat kecuali diminta penjelasan panjang.
-Jika ada pertanyaan tentang cara hafalan, berikan tips praktis yang konkret.`;
-
 /* ── Inisialisasi AI Guru ─────────────────────────────────── */
 function initSimak() {
   loadTTSVoices();
@@ -2411,86 +2396,894 @@ function agTampilkanWelcome() {
     </div>`;
 }
 
+
+/* ══════════════════════════════════════════════════════════════
+   AI USTADZ AS-SALAM — ENGINE v5.0
+   ✅ Claude claude-sonnet-4-6 via proxy (tanpa CORS)
+   ✅ System prompt Ustadz yang kuat & kontekstual
+   ✅ Memori percakapan (10 pesan terakhir)
+   ✅ RAG — cari data lokal dulu, kirim ke AI sebagai konteks
+   ✅ Knowledge Base: 114 Surah, Tajwid lengkap, Tafsir, Hadis
+   ✅ Fallback offline jika proxy tidak tersedia
+   ✅ Format markdown → HTML yang indah
+══════════════════════════════════════════════════════════════ */
+
+/* ── Konfigurasi Proxy ────────────────────────────────────────
+   Proxy Cloudflare Workers gratis untuk bypass CORS.
+   Jika belum deploy, AI fallback ke KB lokal otomatis.
+   Cara deploy: lihat PANDUAN_PROXY.txt yang disertakan.
+──────────────────────────────────────────────────────────────── */
+const AG_PROXY_URL = 'https://quran-ai-proxy.your-subdomain.workers.dev/api/chat';
+// Ganti URL di atas setelah deploy proxy. Selama belum, KB lokal aktif.
+
+/* ── System Prompt Ustadz As-Salam ──────────────────────────── */
+const AG_SYSTEM = `Kamu adalah Ustadz AI As-Salam, asisten digital berbasis Al-Qur'an yang berilmu, ramah, dan terpercaya.
+
+IDENTITAS:
+- Nama: Ustadz AI As-Salam
+- Keahlian: Al-Qur'an, Tajwid, Hafalan, Tafsir, Hadis, Fikih dasar, Kisah Nabi, Doa
+- Bahasa: Indonesia yang santun, hangat, dan mudah dipahami
+- Gaya: Seperti ustadz yang sabar dan membimbing, bukan robot
+
+ATURAN MENJAWAB:
+1. Jika pertanyaan tentang Al-Qur'an → sertakan nomor surah/ayat jika relevan
+2. Jika tentang tajwid → jelaskan dengan contoh huruf Arab
+3. Jika tentang tafsir → sebutkan sumber (Ibnu Katsir, Al-Jalalain, dll) jika ada
+4. Jika tentang hadis → sebutkan perawi (Bukhari, Muslim, dll)
+5. Jika tidak yakin → katakan "Wallahu a'lam" dan sarankan bertanya ke guru
+6. Jika pertanyaan di luar Islam → tolak sopan, kembalikan ke topik Al-Qur'an
+7. JANGAN mengarang ayat, hadis, atau dalil yang tidak ada
+8. Gunakan sapaan: Insya Allah, Alhamdulillah, MasyaAllah, Barakallahu fiik secara natural
+9. Jawaban singkat untuk pertanyaan sederhana, panjang untuk yang kompleks
+10. Selalu motivasi pengguna dalam hafalan dan ibadah
+
+KONTEKS APLIKASI:
+- Pengguna sedang menggunakan Aplikasi Al-Qur'an As-Salam
+- Fitur: Baca Al-Qur'an, Audio Murottal, Simak Hafalan, Jadwal Shalat, Kiblat
+- Jika ditanya cara menggunakan fitur → jelaskan dengan singkat`;
+
+/* ══════════════════════════════════════════════════════════════
+   KNOWLEDGE BASE LENGKAP
+══════════════════════════════════════════════════════════════ */
+
+/* ── 114 Surah ───────────────────────────────────────────────── */
+const KB_SURAH = {
+  1:  {n:'Al-Fatihah',   ar:'الفاتحة',    arti:'Pembukaan',              ayat:7,   juz:1,  type:'Makkiyah',  tema:'Pujian kepada Allah, doa hidayah. Disebut Ummul Qur\'an dan As-Sab\'ul Matsani. Wajib dibaca setiap rakaat shalat.'},
+  2:  {n:'Al-Baqarah',   ar:'البقرة',     arti:'Sapi Betina',            ayat:286, juz:1,  type:'Madaniyah', tema:'Surah terpanjang. Berisi hukum Islam, kisah Bani Israel, Ayat Kursi (255), ayat tentang riba, utang-piutang.'},
+  3:  {n:"Ali 'Imran",   ar:'آل عمران',   arti:'Keluarga Imran',         ayat:200, juz:3,  type:'Madaniyah', tema:'Keluarga Imran, Nabi Isa dan Maryam, perang Uhud, persatuan umat Islam.'},
+  4:  {n:'An-Nisa',      ar:'النساء',     arti:'Wanita',                 ayat:176, juz:4,  type:'Madaniyah', tema:'Hukum wanita, pernikahan, warisan, hak anak yatim, jihad.'},
+  5:  {n:"Al-Ma'idah",   ar:'المائدة',    arti:'Hidangan',               ayat:120, juz:6,  type:'Madaniyah', tema:'Hukum makanan halal-haram, Nabi Isa, perjanjian dengan Allah.'},
+  6:  {n:"Al-An'am",     ar:'الأنعام',    arti:'Binatang Ternak',        ayat:165, juz:7,  type:'Makkiyah',  tema:'Tauhid, bantahan terhadap musyrik, hukum sembelihan.'},
+  7:  {n:"Al-A'raf",     ar:'الأعراف',    arti:'Tempat Tertinggi',       ayat:206, juz:8,  type:'Makkiyah',  tema:'Kisah Adam, Nabi Musa, kaum Shaleh, Luth, Syu\'aib.'},
+  8:  {n:'Al-Anfal',     ar:'الأنفال',    arti:'Rampasan Perang',        ayat:75,  juz:9,  type:'Madaniyah', tema:'Perang Badar, harta rampasan, hukum jihad.'},
+  9:  {n:'At-Taubah',    ar:'التوبة',     arti:'Pengampunan',            ayat:129, juz:10, type:'Madaniyah', tema:'Satu-satunya surah tanpa Basmilah. Perang Tabuk, orang munafik, tobat.'},
+  10: {n:'Yunus',        ar:'يونس',       arti:'Nabi Yunus',             ayat:109, juz:11, type:'Makkiyah',  tema:'Kisah Nabi Yunus, tauhid, Al-Qur\'an sebagai petunjuk.'},
+  11: {n:'Hud',          ar:'هود',        arti:'Nabi Hud',               ayat:123, juz:11, type:'Makkiyah',  tema:'Kisah Nabi Hud, Shaleh, Ibrahim, Luth, Syu\'aib, Musa.'},
+  12: {n:'Yusuf',        ar:'يوسف',       arti:'Nabi Yusuf',             ayat:111, juz:12, type:'Makkiyah',  tema:'Ahsanul Qasas (kisah terbaik). Kisah lengkap Nabi Yusuf AS.'},
+  13: {n:"Ar-Ra'd",      ar:'الرعد',      arti:'Guruh',                  ayat:43,  juz:13, type:'Madaniyah', tema:'Tanda-tanda kekuasaan Allah di alam, tauhid, hujan.'},
+  14: {n:'Ibrahim',      ar:'إبراهيم',    arti:'Nabi Ibrahim',           ayat:52,  juz:13, type:'Makkiyah',  tema:'Doa Nabi Ibrahim, syukur, perumpamaan kalimat baik-buruk.'},
+  15: {n:'Al-Hijr',      ar:'الحجر',      arti:'Batu',                   ayat:99,  juz:14, type:'Makkiyah',  tema:'Allah menjaga Al-Qur\'an, kisah kaum Luth, penciptaan manusia.'},
+  16: {n:'An-Nahl',      ar:'النحل',      arti:'Lebah',                  ayat:128, juz:14, type:'Makkiyah',  tema:'Nikmat Allah: lebah, madu, susu, hujan. Perintah tabligh.'},
+  17: {n:"Al-Isra'",     ar:'الإسراء',    arti:'Perjalanan Malam',       ayat:111, juz:15, type:'Makkiyah',  tema:'Isra Mi\'raj Nabi, 10 perintah moral, keistimewaan Al-Qur\'an.'},
+  18: {n:'Al-Kahf',      ar:'الكهف',      arti:'Gua',                    ayat:110, juz:15, type:'Makkiyah',  tema:'4 kisah: Ashabul Kahf, Pemilik Kebun, Nabi Musa-Khidir, Dzulqarnain. Pelindung dari Dajjal.'},
+  19: {n:'Maryam',       ar:'مريم',       arti:'Maryam',                 ayat:98,  juz:16, type:'Makkiyah',  tema:'Kisah Maryam, kelahiran Isa AS, Yahya, Ibrahim, Ismail, Idris.'},
+  20: {n:'Ta Ha',        ar:'طه',         arti:'Ta Ha',                  ayat:135, juz:16, type:'Makkiyah',  tema:'Kisah lengkap Musa-Firaun, perintah shalat, kisah Adam.'},
+  21: {n:"Al-Anbiya'",   ar:'الأنبياء',   arti:'Para Nabi',              ayat:112, juz:17, type:'Makkiyah',  tema:'Kisah 18 nabi: Ibrahim, Luth, Nuh, Daud, Sulaiman, Yunus, dll.'},
+  22: {n:'Al-Hajj',      ar:'الحج',       arti:'Haji',                   ayat:78,  juz:17, type:'Madaniyah', tema:'Ibadah haji, hari kiamat, jihad fi sabilillah.'},
+  23: {n:"Al-Mu'minun",  ar:'المؤمنون',   arti:'Orang Beriman',          ayat:118, juz:18, type:'Makkiyah',  tema:'Sifat orang mukmin yang beruntung, penciptaan manusia dari tanah.'},
+  24: {n:'An-Nur',       ar:'النور',      arti:'Cahaya',                 ayat:64,  juz:18, type:'Madaniyah', tema:'Hukum zina, qadzaf, li\'an, adab, Ayat Nur (35), hijab.'},
+  25: {n:'Al-Furqan',    ar:'الفرقان',    arti:'Pembeda',                ayat:77,  juz:18, type:'Makkiyah',  tema:'Al-Qur\'an sebagai pembeda, sifat Ibadurrahman (hamba Allah).'},
+  26: {n:"Asy-Syu'ara'", ar:'الشعراء',    arti:'Para Penyair',           ayat:227, juz:19, type:'Makkiyah',  tema:'Kisah Musa, Ibrahim, Nuh, Hud, Shaleh, Luth, Syu\'aib, para penyair.'},
+  27: {n:'An-Naml',      ar:'النمل',      arti:'Semut',                  ayat:93,  juz:19, type:'Makkiyah',  tema:'Kisah Sulaiman dengan semut, Ratu Balqis, Nabi Shaleh.'},
+  28: {n:'Al-Qasas',     ar:'القصص',      arti:'Cerita',                 ayat:88,  juz:20, type:'Makkiyah',  tema:'Kisah Musa paling lengkap, kelahiran hingga misi. Kisah Qarun.'},
+  29: {n:'Al-Ankabut',   ar:'العنكبوت',   arti:'Laba-laba',              ayat:69,  juz:20, type:'Makkiyah',  tema:'Ujian keimanan seperti sarang laba-laba. Kisah Ibrahim, Nuh, Luth.'},
+  30: {n:'Ar-Rum',       ar:'الروم',      arti:'Bangsa Romawi',          ayat:60,  juz:21, type:'Makkiyah',  tema:'Prediksi kemenangan Romawi atas Persia — terbukti. Tanda kekuasaan Allah.'},
+  31: {n:'Luqman',       ar:'لقمان',      arti:'Luqman',                 ayat:34,  juz:21, type:'Makkiyah',  tema:'Nasihat Luqman al-Hakim kepada anaknya: tauhid, shalat, sabar.'},
+  32: {n:'As-Sajdah',    ar:'السجدة',     arti:'Sujud',                  ayat:30,  juz:21, type:'Makkiyah',  tema:'Penciptaan manusia, hari kiamat, ayat sajdah.'},
+  33: {n:'Al-Ahzab',     ar:'الأحزاب',    arti:'Golongan Bersekutu',     ayat:73,  juz:21, type:'Madaniyah', tema:'Perang Khandaq, pernikahan Nabi, hijab istri Nabi.'},
+  34: {n:"Saba'",        ar:'سبأ',        arti:'Kaum Saba',              ayat:54,  juz:22, type:'Makkiyah',  tema:'Kaum Saba yang ingkar nikmat. Daud, Sulaiman, rezeki Allah.'},
+  35: {n:'Fatir',        ar:'فاطر',       arti:'Pencipta',               ayat:45,  juz:22, type:'Makkiyah',  tema:'Allah Pencipta langit-bumi, malaikat bersayap, tiga golongan manusia.'},
+  36: {n:'Ya Sin',       ar:'يس',         arti:'Ya Sin',                 ayat:83,  juz:22, type:'Makkiyah',  tema:'Qalbul Qur\'an. Tauhid, risalah, hari kiamat, kebangkitan. Dibaca untuk orang sakaratul maut.'},
+  37: {n:'As-Saffat',    ar:'الصافات',    arti:'Yang Bershaf',           ayat:182, juz:23, type:'Makkiyah',  tema:'Malaikat bershaf, kisah Ibrahim-Ismail, Yunus, Ilyas, Nuh.'},
+  38: {n:'Sad',          ar:'ص',          arti:'Sad',                    ayat:88,  juz:23, type:'Makkiyah',  tema:'Kisah Daud dan hikmahnya, Sulaiman, Ayyub, Adam.'},
+  39: {n:'Az-Zumar',     ar:'الزمر',      arti:'Rombongan',              ayat:75,  juz:23, type:'Makkiyah',  tema:'Tauhid, ikhlas beribadah, tobat, rombongan ahli surga-neraka.'},
+  40: {n:'Gafir',        ar:'غافر',       arti:'Maha Pengampun',         ayat:85,  juz:24, type:'Makkiyah',  tema:'Kisah orang beriman dari keluarga Firaun. Sifat Allah Gafir.'},
+  41: {n:'Fussilat',     ar:'فصلت',       arti:'Dijelaskan',             ayat:54,  juz:24, type:'Makkiyah',  tema:'Al-Qur\'an diturunkan dan dijelaskan, penciptaan alam 6 masa.'},
+  42: {n:'Asy-Syura',    ar:'الشورى',     arti:'Musyawarah',             ayat:53,  juz:25, type:'Makkiyah',  tema:'Wahyu dari Allah, musyawarah, keadilan, sifat mukmin sejati.'},
+  43: {n:'Az-Zukhruf',   ar:'الزخرف',     arti:'Perhiasan',              ayat:89,  juz:25, type:'Makkiyah',  tema:'Perhiasan dunia, Nabi Isa bukan Tuhan, dialog surga.'},
+  44: {n:'Ad-Dukhan',    ar:'الدخان',     arti:'Kabut',                  ayat:59,  juz:25, type:'Makkiyah',  tema:'Kabut sebagai tanda hari kiamat, kisah Firaun.'},
+  45: {n:'Al-Jasiyah',   ar:'الجاثية',    arti:'Yang Berlutut',          ayat:37,  juz:25, type:'Makkiyah',  tema:'Hari kiamat semua berlutut, tanda keesaan Allah di alam.'},
+  46: {n:'Al-Ahqaf',     ar:'الأحقاف',    arti:'Bukit Pasir',            ayat:35,  juz:26, type:'Makkiyah',  tema:'Kaum Ad di Ahqaf, jin mendengar Al-Qur\'an dan beriman.'},
+  47: {n:'Muhammad',     ar:'محمد',       arti:'Muhammad',               ayat:38,  juz:26, type:'Madaniyah', tema:'Jihad, sifat surga (sungai susu, madu, khamr), jangan lemah.'},
+  48: {n:'Al-Fath',      ar:'الفتح',      arti:'Kemenangan',             ayat:29,  juz:26, type:'Madaniyah', tema:'Perjanjian Hudaibiyyah, bai\'at Ridhwan, sifat sahabat Nabi.'},
+  49: {n:'Al-Hujurat',   ar:'الحجرات',    arti:'Kamar-kamar',            ayat:18,  juz:26, type:'Madaniyah', tema:'Adab Islam: jangan panggil Nabi keras, jangan ghibah, prasangka baik, ukhuwah.'},
+  50: {n:'Qaf',          ar:'ق',          arti:'Qaf',                    ayat:45,  juz:26, type:'Makkiyah',  tema:'Hari kiamat, dua malaikat pencatat, sakaratul maut.'},
+  51: {n:'Az-Zariyat',   ar:'الذاريات',   arti:'Angin Menerbangkan',     ayat:60,  juz:26, type:'Makkiyah',  tema:'Tanda kekuasaan Allah, kisah tamu Ibrahim, Allah pemberi rezeki.'},
+  52: {n:'At-Tur',       ar:'الطور',      arti:'Bukit Tur',              ayat:49,  juz:27, type:'Makkiyah',  tema:'Sumpah Allah dengan Tur Sina, siksa neraka, nikmat surga.'},
+  53: {n:'An-Najm',      ar:'النجم',      arti:'Bintang',                ayat:62,  juz:27, type:'Makkiyah',  tema:'Wahyu Al-Qur\'an benar, Isra Mi\'raj, sujud tilawah.'},
+  54: {n:'Al-Qamar',     ar:'القمر',      arti:'Bulan',                  ayat:55,  juz:27, type:'Makkiyah',  tema:'Pembelahan bulan, kisah Nuh, Ad, Tsamud, Luth, Firaun.'},
+  55: {n:'Ar-Rahman',    ar:'الرحمن',     arti:'Yang Maha Pengasih',     ayat:78,  juz:27, type:'Madaniyah', tema:'Satu-satunya surah yang dimulai dengan nama Allah. فَبِأَيِّ آلَاءِ رَبِّكُمَا تُكَذِّبَانِ diulang 31 kali.'},
+  56: {n:"Al-Waqi'ah",   ar:'الواقعة',    arti:'Hari Kiamat',            ayat:96,  juz:27, type:'Makkiyah',  tema:'Tiga golongan: Sabiqun, Ashabul Yamin, Ashabul Syimal. Penciptaan manusia.'},
+  57: {n:'Al-Hadid',     ar:'الحديد',     arti:'Besi',                   ayat:29,  juz:27, type:'Madaniyah', tema:'Infak di jalan Allah, besi diturunkan, hidup dunia hanya permainan.'},
+  58: {n:'Al-Mujadilah', ar:'المجادلة',   arti:'Wanita yang Menggugat',  ayat:22,  juz:28, type:'Madaniyah', tema:'Hukum zihar, rahasia majelis, larangan bersekutu dengan musuh Allah.'},
+  59: {n:'Al-Hasyr',     ar:'الحشر',      arti:'Pengusiran',             ayat:24,  juz:28, type:'Madaniyah', tema:'Pengusiran Bani Nadhir, pembagian ghanimah, Asmaul Husna di akhir.'},
+  60: {n:'Al-Mumtahanah',ar:'الممتحنة',   arti:'Wanita yang Diuji',      ayat:13,  juz:28, type:'Madaniyah', tema:'Hubungan dengan non-muslim, hijrah wanita, baiat.'},
+  61: {n:'As-Saf',       ar:'الصف',       arti:'Barisan',                ayat:14,  juz:28, type:'Madaniyah', tema:'Jihad dalam barisan yang rapi, Isa menubuatkan Ahmad (Muhammad).'},
+  62: {n:"Al-Jumu'ah",   ar:'الجمعة',     arti:"Hari Jum'at",           ayat:11,  juz:28, type:'Madaniyah', tema:'Kewajiban shalat Jumat, tinggalkan jual beli saat azan Jumat.'},
+  63: {n:'Al-Munafiqun', ar:'المنافقون',  arti:'Orang Munafik',          ayat:11,  juz:28, type:'Madaniyah', tema:'Sifat munafik: sumpah palsu, penghalang jalan Allah, angkuh.'},
+  64: {n:'At-Tagabun',   ar:'التغابن',    arti:'Hari Kerugian',          ayat:18,  juz:28, type:'Madaniyah', tema:'Hari kiamat hari dinampakkan kerugian, istri dan anak bisa jadi fitnah.'},
+  65: {n:'At-Talaq',     ar:'الطلاق',     arti:'Talak',                  ayat:12,  juz:28, type:'Madaniyah', tema:'Hukum talak, iddah, nafkah. Disebut Surah An-Nisa Sughra.'},
+  66: {n:'At-Tahrim',    ar:'التحريم',    arti:'Mengharamkan',           ayat:12,  juz:28, type:'Madaniyah', tema:'Larangan mengharamkan yang Allah halalkan, kisah istri Nabi.'},
+  67: {n:'Al-Mulk',      ar:'الملك',      arti:'Kerajaan',               ayat:30,  juz:29, type:'Makkiyah',  tema:'Al-Waqiyah: pelindung dari azab kubur. Kekuasaan Allah, penciptaan langit bertingkat.'},
+  68: {n:'Al-Qalam',     ar:'القلم',      arti:'Pena',                   ayat:52,  juz:29, type:'Makkiyah',  tema:'Membela akhlak Nabi, kisah pemilik kebun yang sombong.'},
+  69: {n:'Al-Haqqah',    ar:'الحاقة',     arti:'Hari Kiamat yang Pasti', ayat:52,  juz:29, type:'Makkiyah',  tema:'Kehancuran umat durhaka, hari kiamat, catatan amal.'},
+  70: {n:"Al-Ma'arij",   ar:'المعارج',    arti:'Tempat Naik',            ayat:44,  juz:29, type:'Makkiyah',  tema:'Azab yang pasti, sifat manusia yang keluh kesah, kecuali yang shalat.'},
+  71: {n:'Nuh',          ar:'نوح',        arti:'Nabi Nuh',               ayat:28,  juz:29, type:'Makkiyah',  tema:'Dakwah Nabi Nuh 950 tahun, doa kebinasaan kaum kafir.'},
+  72: {n:'Al-Jinn',      ar:'الجن',       arti:'Jin',                    ayat:28,  juz:29, type:'Makkiyah',  tema:'Sekelompok jin mendengar Al-Qur\'an dan beriman.'},
+  73: {n:'Al-Muzzammil', ar:'المزمل',     arti:'Yang Berselimut',        ayat:20,  juz:29, type:'Makkiyah',  tema:'Perintah shalat malam (qiyamul lail), membaca Al-Qur\'an dengan tartil.'},
+  74: {n:'Al-Muddassir', ar:'المدثر',     arti:'Yang Berkemul',          ayat:56,  juz:29, type:'Makkiyah',  tema:'Perintah dakwah, ancaman neraka Saqar, 19 malaikat penjaga.'},
+  75: {n:'Al-Qiyamah',   ar:'القيامة',    arti:'Hari Kiamat',            ayat:40,  juz:29, type:'Makkiyah',  tema:'Hari kiamat pasti terjadi, manusia menjadi saksi atas dirinya.'},
+  76: {n:'Al-Insan',     ar:'الإنسان',    arti:'Manusia',                ayat:31,  juz:29, type:'Madaniyah', tema:'Nikmat surga bagi yang bersabar, makan orang miskin, anak yatim.'},
+  77: {n:'Al-Mursalat',  ar:'المرسلات',   arti:'Malaikat yang Diutus',   ayat:50,  juz:29, type:'Makkiyah',  tema:'وَيْلٌ يَوْمَئِذٍ لِلْمُكَذِّبِينَ diulang 10 kali. Hari kiamat.'},
+  78: {n:"An-Naba'",     ar:'النبأ',      arti:'Berita Besar',           ayat:40,  juz:30, type:'Makkiyah',  tema:'Hari kiamat: berita besar yang diperselisihkan. Tanda kebesaran Allah.'},
+  79: {n:"An-Nazi'at",   ar:'النازعات',   arti:'Malaikat Pencabut',      ayat:46,  juz:30, type:'Makkiyah',  tema:'Malaikat pencabut nyawa, hari kiamat, kisah Musa dan Firaun.'},
+  80: {n:"'Abasa",       ar:'عبس',        arti:'Bermuka Masam',          ayat:42,  juz:30, type:'Makkiyah',  tema:'Teguran Allah kepada Nabi karena bermuka masam kepada Abdullah bin Ummi Maktum.'},
+  81: {n:'At-Takwir',    ar:'التكوير',    arti:'Penggulungan',           ayat:29,  juz:30, type:'Makkiyah',  tema:'Tanda-tanda kiamat: matahari digulung, bintang berjatuhan.'},
+  82: {n:'Al-Infitar',   ar:'الانفطار',   arti:'Terbelah',               ayat:19,  juz:30, type:'Makkiyah',  tema:'Langit terbelah, bintang berguguran, amal manusia dicatat malaikat.'},
+  83: {n:'Al-Mutaffifin',ar:'المطففين',   arti:'Orang Curang',           ayat:36,  juz:30, type:'Makkiyah',  tema:'Larangan curang dalam takaran. Catatan amal: Sijjin dan Illiyyin.'},
+  84: {n:'Al-Insyiqaq',  ar:'الانشقاق',   arti:'Terbelah',               ayat:25,  juz:30, type:'Makkiyah',  tema:'Langit terbelah, manusia bekerja keras, sujud tilawah.'},
+  85: {n:'Al-Buruj',     ar:'البروج',     arti:'Gugusan Bintang',        ayat:22,  juz:30, type:'Makkiyah',  tema:'Ashabul Ukhdud, parit api, kekuasaan Allah yang tak terkalahkan.'},
+  86: {n:'At-Tariq',     ar:'الطارق',     arti:'Yang Datang Malam',      ayat:17,  juz:30, type:'Makkiyah',  tema:'Bintang Tsaqib, manusia diciptakan dari air terpancar.'},
+  87: {n:"Al-A'la",      ar:'الأعلى',     arti:'Yang Paling Tinggi',     ayat:19,  juz:30, type:'Makkiyah',  tema:'Sucikan nama Tuhanmu Yang Maha Tinggi. Wahyu akan kamu ingat. Shalat lebih baik.'},
+  88: {n:'Al-Gasiyah',   ar:'الغاشية',    arti:'Hari Pembalasan',        ayat:26,  juz:30, type:'Makkiyah',  tema:'Wajah tunduk di neraka, wajah berseri di surga. Renungkan unta, langit, bumi.'},
+  89: {n:'Al-Fajr',      ar:'الفجر',      arti:'Fajar',                  ayat:30,  juz:30, type:'Makkiyah',  tema:'Sumpah fajar, kebinasaan Ad-Tsamud-Firaun, jiwa yang tenang masuk surga.'},
+  90: {n:'Al-Balad',     ar:'البلد',      arti:'Negeri',                 ayat:20,  juz:30, type:'Makkiyah',  tema:'Sumpah kota Mekah. Manusia diciptakan dalam susah payah. Dua jalan.'},
+  91: {n:'Asy-Syams',    ar:'الشمس',      arti:'Matahari',               ayat:15,  juz:30, type:'Makkiyah',  tema:'Sumpah matahari-bulan-siang-malam-langit-bumi. Jiwa dan penyuciannya.'},
+  92: {n:'Al-Lail',      ar:'الليل',      arti:'Malam',                  ayat:21,  juz:30, type:'Makkiyah',  tema:'Perbedaan manusia: dermawan vs kikir. Allah mudahkan yang memberi.'},
+  93: {n:'Ad-Duha',      ar:'الضحى',      arti:'Waktu Dhuha',            ayat:11,  juz:30, type:'Makkiyah',  tema:'Hiburan Allah kepada Nabi saat wahyu terhenti. Jangan hardik anak yatim.'},
+  94: {n:'Asy-Syarh',    ar:'الشرح',      arti:'Melapangkan',            ayat:8,   juz:30, type:'Makkiyah',  tema:'Kelapangan dada Nabi. Bersama kesulitan ada kemudahan (2x). Harapkan kepada Tuhan.'},
+  95: {n:'At-Tin',       ar:'التين',      arti:'Buah Tin',               ayat:8,   juz:30, type:'Makkiyah',  tema:'Manusia diciptakan sebaik-baik bentuk, lalu dijadikan paling hina kecuali beriman.'},
+  96: {n:"Al-'Alaq",     ar:'العلق',      arti:'Segumpal Darah',         ayat:19,  juz:30, type:'Makkiyah',  tema:'Wahyu pertama: Iqra\' (Bacalah). Allah mengajar dengan kalam. Larangan menghalangi shalat.'},
+  97: {n:'Al-Qadr',      ar:'القدر',      arti:'Kemuliaan',              ayat:5,   juz:30, type:'Makkiyah',  tema:'Lailatul Qadr lebih baik dari 1000 bulan. Malaikat turun dengan izin Rabb.'},
+  98: {n:'Al-Bayyinah',  ar:'البينة',     arti:'Bukti',                  ayat:8,   juz:30, type:'Madaniyah', tema:'Ahli kitab dan musyrik baru terpisah setelah datangnya bukti (Rasul).'},
+  99: {n:'Az-Zalzalah',  ar:'الزلزلة',    arti:'Kegoncangan',            ayat:8,   juz:30, type:'Madaniyah', tema:'Bumi bergoncang dahsyat. Amal seberat dzarrah (atom) akan terlihat.'},
+  100:{n:"Al-'Adiyat",   ar:'العاديات',   arti:'Kuda Berlari',           ayat:11,  juz:30, type:'Makkiyah',  tema:'Kuda perang yang berlari kencang. Manusia sangat ingkar kepada Tuhannya.'},
+  101:{n:"Al-Qari'ah",   ar:'القارعة',    arti:'Hari Kiamat yang Keras', ayat:11,  juz:30, type:'Makkiyah',  tema:'Kiamat yang mengetuk keras. Timbangan amal: berat → surga, ringan → neraka Hawiyah.'},
+  102:{n:'At-Takasur',   ar:'التكاثر',    arti:'Bermegah-megahan',       ayat:8,   juz:30, type:'Makkiyah',  tema:'Bermegah dalam harta melalaikan. Kelak akan tahu. Lihat neraka Jahim.'},
+  103:{n:"Al-'Asr",      ar:'العصر',      arti:'Masa',                   ayat:3,   juz:30, type:'Makkiyah',  tema:'Demi masa. Manusia merugi, kecuali: beriman, beramal shalih, nasihat-menasihati.'},
+  104:{n:'Al-Humazah',   ar:'الهمزة',     arti:'Pengumpat',              ayat:9,   juz:30, type:'Makkiyah',  tema:'Celakalah pengumpat-pencela. Harta dikira bisa mengekalkan. Neraka Hutamah.'},
+  105:{n:'Al-Fil',       ar:'الفيل',      arti:'Gajah',                  ayat:5,   juz:30, type:'Makkiyah',  tema:'Kisah Abrahah dengan pasukan gajah ingin hancurkan Ka\'bah. Dihancurkan burung Ababil.'},
+  106:{n:'Quraisy',      ar:'قريش',       arti:'Suku Quraisy',           ayat:4,   juz:30, type:'Makkiyah',  tema:'Nikmat Allah kepada Quraisy: perjalanan musim dingin-panas. Sembah Rabb Ka\'bah.'},
+  107:{n:"Al-Ma'un",     ar:'الماعون',    arti:'Barang yang Berguna',    ayat:7,   juz:30, type:'Makkiyah',  tema:'Pendustaan agama: menghardik anak yatim, tidak beri makan miskin, shalat lalai.'},
+  108:{n:'Al-Kausar',    ar:'الكوثر',     arti:'Nikmat Melimpah',        ayat:3,   juz:30, type:'Makkiyah',  tema:'Surah terpendek. Al-Kausar: sungai di surga. Shalat dan berkurban untuk Allah.'},
+  109:{n:'Al-Kafirun',   ar:'الكافرون',   arti:'Orang-orang Kafir',      ayat:6,   juz:30, type:'Makkiyah',  tema:'Pernyataan tegas: lakum dinukum waliyadin. Setara 1/4 Al-Qur\'an.'},
+  110:{n:'An-Nasr',      ar:'النصر',      arti:'Pertolongan',            ayat:3,   juz:30, type:'Madaniyah', tema:'Pertolongan Allah dan Fathu Mekah tanda Nabi akan wafat. Bertasbih dan minta ampun.'},
+  111:{n:'Al-Masad',     ar:'المسد',      arti:'Sabut',                  ayat:5,   juz:30, type:'Makkiyah',  tema:'Kebinasaan Abu Lahab dan istrinya. Harta tidak berguna di akhirat.'},
+  112:{n:'Al-Ikhlas',    ar:'الإخلاص',    arti:'Kemurnian Tauhid',       ayat:4,   juz:30, type:'Makkiyah',  tema:'Surah Tauhid murni. Setara 1/3 Al-Qur\'an. قُلْ هُوَ اللَّهُ أَحَدٌ'},
+  113:{n:'Al-Falaq',     ar:'الفلق',      arti:'Waktu Subuh',            ayat:5,   juz:30, type:'Makkiyah',  tema:'Berlindung dari kejahatan makhluk, malam gelap, tukang sihir, pendengki.'},
+  114:{n:'An-Nas',       ar:'الناس',      arti:'Manusia',                ayat:6,   juz:30, type:'Makkiyah',  tema:'Berlindung dari was-was setan yang bersembunyi. Muawwidzatain bersama Al-Falaq.'},
+};
+
+/* ── Knowledge Base Tajwid Lengkap ──────────────────────────── */
+const KB_TAJWID = {
+  'nun mati': `📖 **Hukum Nun Mati (نْ) dan Tanwin — 4 Hukum:**
+
+**1. Izhar Halqi** (جelas)
+Huruf: ء ه ع ح غ خ — dibaca JELAS, tidak dengung
+Contoh: مِنْ أَهْلِ → "min ahli" (nun jelas)
+
+**2. Idgham** (masuk)
+• **Bigunnah** (با dengung) — huruf: ي ن م و
+  Contoh: مَنْ يَعْمَلْ → "mayyak'mal"
+• **Bilagunnah** (tanpa dengung) — huruf: ل ر
+  Contoh: مِنْ رَّبِّكَ → "mirabbika"
+
+**3. Iqlab** (tukar)
+Huruf: ب → nun berubah menjadi MIM + dengung 2 harakat
+Contoh: مِنْ بَعْدِ → dibaca "mim-ba'di"
+
+**4. Ikhfa' Haqiqi** (samar)
+15 huruf selebihnya: ت ث ج د ذ ز س ش ص ض ط ظ ف ق ك
+→ Dibaca SAMAR antara izhar dan idgham + dengung 2 harakat
+Contoh: مِنْ دُونِ → "min-duuni" (samar)`,
+
+  'mim mati': `📖 **Hukum Mim Mati (مْ) — 3 Hukum:**
+
+**1. Ikhfa' Syafawi**
+Mim mati + huruf ب → mim SAMAR + dengung 2 harakat
+Contoh: هُمْ بِالْآخِرَةِ
+
+**2. Idgham Mimi (Mutamasilain)**
+Mim mati + مim → masuk dengan dengung 2 harakat
+Contoh: لَهُمْ مَا يَشَاءُونَ
+
+**3. Izhar Syafawi**
+Mim mati + selain ب dan م → mim JELAS tanpa dengung
+Contoh: عَلَيْهِمْ غَيْرِ`,
+
+  'mad': `📖 **Hukum Mad (Panjang Bacaan):**
+
+**Mad Thabi'i (Asli)** — 2 harakat
+Alif sesudah fathah, wau sesudah dhammah, ya sesudah kasrah
+
+**Mad Wajib Muttasil** — 4-5 harakat
+Mad thabi'i + hamzah dalam SATU kata
+Contoh: جَاءَ، السَّمَاءِ، جِيءَ
+
+**Mad Jaiz Munfasil** — 2-5 harakat
+Mad thabi'i + hamzah di KATA BERIKUTNYA
+Contoh: إِنَّا أَعْطَيْنَاكَ، قُوا أَنْفُسَكُمْ
+
+**Mad Lazim** — 6 harakat (wajib)
+Mad + sukun/syaddah asli
+Contoh: وَلَا الضَّالِّينَ، الْحَاقَّةُ
+
+**Mad Lin** — 2-6 harakat saat waqaf
+Wau/ya sukun didahului fathah + waqaf
+Contoh: خَوْف، بَيْت`,
+
+  'ghunnah': `📖 **Ghunnah (Dengung/Sengau):**
+
+Ghunnah adalah suara dengung dari HIDUNG yang menyertai huruf **ن** dan **م**.
+
+**Kapan terjadi:**
+• Nun/mim bertasydid (نّ مّ) → dengung wajib
+• Idgham bigunnah
+• Iqlab
+• Ikhfa' haqiqi dan ikhfa' syafawi
+
+**Panjang:** 2 harakat (ketukan)
+
+**Cara latih:** Ucapkan "ngg..." tanpa menutup mulut — suara dari hidung itulah ghunnah.
+
+Contoh: إِنَّ (inna), ثُمَّ (tsumma), مِنْ يَوْمٍ`,
+
+  'qalqalah': `📖 **Qalqalah (Memantul/Bergetar):**
+
+Huruf Qalqalah 5: **ق ط ب ج د**
+(Hafalkan: قُطُبُ جَدٍّ)
+
+**Qalqalah Sughra** — di tengah kata (sukun asli)
+→ Pantulan RINGAN
+Contoh: يَجْعَلُونَ، يَقْطَعُونَ، أَبْدَعَ
+
+**Qalqalah Kubra** — di akhir kata/saat waqaf
+→ Pantulan KUAT dan jelas
+Contoh: 
+• قُلْ أَعُوذُ → "qul" (kubra saat waqaf)
+• وَالْفَجْرِ ← saat waqaf: "fajr" dengan pantulan kuat`,
+
+  'waqaf': `📖 **Tanda-tanda Waqaf:**
+
+| Tanda | Nama | Hukum |
+|-------|------|-------|
+| **م** | Waqaf Lazim | WAJIB berhenti |
+| **لا** | Waqaf Mamnu' | DILARANG berhenti |
+| **ج** | Waqaf Jaiz | Boleh berhenti/lanjut |
+| **قلى** | Waqaf Aula | Lebih baik berhenti |
+| **صلى** | Washal Aula | Lebih baik lanjut |
+| **∴ ∴** | Mu'anaqah | Berhenti di salah satu |
+| **ص** | Waqaf Murakhkhas | Boleh waqaf (ayat panjang) |
+| **ط** | Waqaf Mutlak | Sempurna berhenti |`,
+
+  'makhraj': `📖 **Makhraj Huruf — 17 Titik Keluarnya Suara:**
+
+**Kelompok Halq (Tenggorokan):**
+• ء ه → tenggorokan dalam
+• ع ح → tenggorokan tengah
+• غ خ → tenggorokan luar
+
+**Kelompok Lisan (Lidah):**
+• ق → pangkal lidah-langit belakang
+• ك → pangkal lidah-langit depan
+• ج ش ي → tengah lidah
+• ض → sisi lidah kiri/kanan
+• ل → ujung sisi lidah
+• ن → ujung lidah (sedikit mundur)
+• ر → ujung lidah (bergetar)
+• ط د ت → ujung lidah-langit atas
+• ص س ز → ujung lidah-gigi bawah
+• ظ ذ ث → ujung lidah-gigi atas
+
+**Kelompok Syafatain (Bibir):**
+• ف → bibir bawah-gigi atas
+• ب م و → dua bibir
+
+**Hidung:**
+• Ghunnah (dengung ن م)`,
+
+  'idgham': `📖 **Idgham (Memasukkan Huruf):**
+
+**Idgham Mutamasilain** (dua huruf sama)
+Huruf pertama sukun masuk ke huruf kedua
+Contoh: اضْرِب بِعَصَاكَ → اضْرِبِّعَصَاكَ
+
+**Idgham Mutajanisain** (berdekatan makhraj)
+Pasangan hukum:
+• ت + د atau ط → masuk
+• ذ + ظ → masuk
+• ث + ذ → masuk
+• ب + م → masuk
+
+**Idgham Mutaqaribain** (berdekatan sifat)
+• ل + ر dan ق + ك`,
+
+  'izhar': `📖 **Izhar (Membaca Jelas):**
+
+**Izhar Halqi**
+Nun mati/tanwin + huruf halq (ء ه ع ح غ خ)
+→ Nun dibaca JELAS, tidak dengung, tidak samar
+
+Huruf halq = huruf tenggorokan
+
+**Izhar Syafawi**
+Mim mati + selain ب dan م
+→ Mim dibaca JELAS tanpa dengung
+
+💡 Tips hafal: IZ-HAR = harus HARus JELAS!`,
+
+  'ikhfa': `📖 **Ikhfa' (Membaca Samar):**
+
+**Ikhfa' Haqiqi**
+Nun mati/tanwin + 15 huruf:
+ت ث ج د ذ ز س ش ص ض ط ظ ف ق ك
+→ Samar ANTARA izhar dan idgham
+→ Disertai dengung 2 harakat
+
+**Ikhfa' Syafawi**  
+Mim mati + ب
+→ Mim samar + dengung 2 harakat
+
+💡 Cara: posisi mulut membentuk huruf berikutnya, tapi masih ada bunyi samar dari nun/mim`,
+
+  'iqlab': `📖 **Iqlab (Menukar Huruf):**
+
+Nun mati/tanwin + ب
+→ Nun BERUBAH menjadi MIM + dengung 2 harakat
+
+**Cara membaca:**
+1. Tutup bibir (posisi mim)
+2. Dengungkan dari hidung 2 harakat
+3. Baru ucapkan "ba"
+
+**Tanda di mushaf:** huruf kecil م di atas nun
+
+Contoh:
+• مِنْ بَعْدِ → "mim-ba'di" (dengan dengung)
+• سَمِيعٌ بَصِيرٌ → "samii'um-bashiir"`,
+};
+
+/* ── Knowledge Base Hadis Pilihan ────────────────────────────── */
+const KB_HADIS = [
+  {tema:'hafalan', teks:'Sebaik-baik kalian adalah yang belajar Al-Qur\'an dan mengajarkannya.', rawi:'HR. Bukhari no.5027'},
+  {tema:'hafalan', teks:'Bacalah Al-Qur\'an, karena ia akan datang pada hari kiamat sebagai pemberi syafa\'at bagi para pembacanya.', rawi:'HR. Muslim no.804'},
+  {tema:'hafalan', teks:'Ahli Al-Qur\'an adalah keluarga Allah dan orang-orang istimewa-Nya.', rawi:'HR. An-Nasa\'i, Ibnu Majah'},
+  {tema:'keutamaan', teks:'Orang yang mahir membaca Al-Qur\'an akan bersama para malaikat yang mulia. Orang yang membaca Al-Qur\'an dengan terbata-bata dan sulit, ia mendapat dua pahala.', rawi:'HR. Bukhari-Muslim'},
+  {tema:'malam', teks:'Barangsiapa membaca dua ayat terakhir surah Al-Baqarah di malam hari, maka keduanya mencukupinya.', rawi:'HR. Bukhari no.5009'},
+  {tema:'ikhlas', teks:'Pelajarilah Al-Qur\'an dan amalkan. Janganlah kalian makan darinya (mencari penghidupan darinya semata) dan janganlah kalian memperbanyak harta darinya.', rawi:'HR. Ahmad'},
+  {tema:'shalat', teks:'Tidak sempurna shalat seseorang yang tidak membaca Ummul Kitab (Al-Fatihah).', rawi:'HR. Bukhari-Muslim'},
+  {tema:'tajwid', teks:'Hiasilah Al-Qur\'an dengan suaramu (bacalah dengan suara yang indah).', rawi:'HR. Abu Dawud, Ibnu Majah'},
+];
+
+/* ── Knowledge Base Kisah Nabi ───────────────────────────────── */
+const KB_NABI = {
+  adam:     'Nabi Adam AS adalah manusia pertama. Allah menciptakannya dari tanah, lalu meniupkan ruh. Diajarkan nama-nama segala sesuatu. Tinggal di surga bersama Hawa, lalu turun ke bumi karena memakan buah terlarang.',
+  nuh:      'Nabi Nuh AS berdakwah selama 950 tahun namun hanya sedikit yang beriman. Allah memerintahkan membuat bahtera. Banjir besar melanda. Putranya Kan\'an tenggelam karena menolak naik bahtera.',
+  ibrahim:  'Nabi Ibrahim AS disebut Khalilullah (kekasih Allah) dan Abul Anbiya\' (bapak para nabi). Menghancurkan berhala, dibakar namun selamat, membangun Ka\'bah bersama Ismail, diperintah menyembelih Ismail.',
+  musa:     'Nabi Musa AS lahir di masa Firaun. Dilarung ke Sungai Nil saat bayi. Dibesarkan di istana Firaun. Menerima wahyu di Bukit Tur. Memimpin Bani Israel keluar dari Mesir. Menerima Taurat.',
+  isa:      'Nabi Isa AS lahir dari Maryam tanpa ayah (mukjizat). Bisa berbicara saat bayi. Menghidupkan orang mati, menyembuhkan buta dan kusta dengan izin Allah. Diangkat ke langit, belum wafat.',
+  muhammad: 'Nabi Muhammad SAW lahir 12 Rabi\'ul Awwal 571 M di Mekah. Wahyu pertama di Gua Hira usia 40 tahun. Hijrah ke Madinah 622 M. Fathu Mekah 630 M. Wafat 632 M. Penutup para nabi.',
+  yusuf:    'Nabi Yusuf AS putra Ya\'qub. Dibuang saudara-saudaranya ke sumur. Dijual sebagai budak di Mesir. Dipenjara karena fitnah. Dibebaskan setelah mampu menafsirkan mimpi Raja. Menjadi menteri. Bertemu kembali dengan keluarganya.',
+  yunus:    'Nabi Yunus AS (Dzulnun). Meninggalkan kaumnya sebelum diizinkan Allah. Ditelan ikan besar. Berdoa: لَا إِلَهَ إِلَّا أَنتَ سُبْحَانَكَ إِنِّي كُنتُ مِنَ الظَّالِمِينَ. Dikeluarkan dari perut ikan. Kaumnya beriman.',
+};
+
+/* ── Knowledge Base Tips Hafalan ─────────────────────────────── */
+const KB_TIPS = {
+  umum: `💡 **10 Tips Menghafal Al-Qur\'an yang Efektif:**
+
+**1. Niatkan karena Allah** — Luruskan niat, minta kepada Allah dimudahkan
+
+**2. Pilih waktu terbaik**
+• Subuh setelah shalat (otak paling segar)
+• Setelah Ashar atau Isya
+• Sepertiga malam terakhir
+
+**3. Metode Talaqqi** — Dengarkan murottal, tirukan, baru hafal
+
+**4. Teknik 3-3-3**
+• Baca 1 ayat 3× melihat mushaf
+• Baca 3× tanpa melihat
+• Sambung dengan ayat sebelumnya 3×
+
+**5. Satu mushaf khusus** — Otak mengingat posisi visual ayat
+
+**6. Target realistis** — 3-5 ayat/hari lebih baik dari banyak tapi lupa
+
+**7. Murajaah WAJIB** — Ulang minimal 1 halaman per hari
+
+**8. Shalat dengan hafalan baru** — Baca saat shalat sunnah untuk menguatkan
+
+**9. Kurangi maksiat** — Imam Syafi'i: "Aku mengadu kepada Waki\' tentang buruknya hafalanku..."
+
+**10. Doa setiap hari** — رَبِّ زِدْنِي عِلْمًا (Rabbi zidni ilma)`,
+
+  murajaah: `🔄 **Strategi Murajaah (Mengulang Hafalan):**
+
+**Sistem Sabaq-Sabqi-Manzil:**
+• **Sabaq** = hafalan baru hari ini (misal 5 ayat)
+• **Sabqi** = hafalan 7 hari terakhir (ulang setiap hari)
+• **Manzil** = seluruh hafalan (bagi 7 bagian, 1 bagian/hari)
+
+**Jadwal Ideal:**
+• Subuh: Hafalan baru (sabaq)
+• Ashar: Murajaah sabqi
+• Dalam shalat: Baca hafalan lama
+• Malam: Dengarkan murottal sambil tidur
+
+**Tips Anti-Lupa:**
+• Ajarkan kepada orang lain (mengajar = menguatkan)
+• Simak hafalan dengan teman/guru rutin
+• Rekam suara sendiri dan dengarkan`,
+
+  lupa: `😊 **Mengatasi Lupa Hafalan:**
+
+Lupa adalah **ujian yang wajar**. Rasulullah SAW bersabda:
+*"Jaga Al-Qur\'an ini, demi jiwa Muhammad yang ada di tangan-Nya, sungguh Al-Qur\'an lebih cepat lepas dari hati dibanding unta dari ikatannya."* (HR. Bukhari-Muslim)
+
+**Penyebab Lupa:**
+• Jarang murajaah (penyebab utama)
+• Banyak maksiat
+• Kurang tidur / terlalu lelah
+• Tidak konsisten
+
+**Solusi Praktis:**
+1. Kembali ke mushaf, baca ulang 10× tanpa hafal
+2. Perbanyak shalat malam
+3. Minta disimak guru atau teman
+4. Turunkan target sementara
+5. Baca Al-Qur\'an meski tidak hafal — jangan berhenti total`,
+
+  mutasyabih: `📖 **Mengatasi Ayat Mutasyabihat (Ayat Mirip):**
+
+Contoh terkenal:
+• فَبِأَيِّ آلَاءِ رَبِّكُمَا تُكَذِّبَانِ → diulang **31×** di Ar-Rahman
+• وَيْلٌ يَوْمَئِذٍ لِلْمُكَذِّبِينَ → diulang **10×** di Al-Mursalat
+
+**Strategi:**
+1. **Tandai** ayat-ayat mirip di mushaf (stabilo berbeda warna)
+2. **Hafal konteks** — sebelum dan sesudah ayat
+3. **Buat flashcard** — tulis perbedaan kecilnya
+4. **Simak khusus** — minta guru tes di bagian ini saja
+5. **Buat cerita** untuk mengingat urutan (memory palace)`,
+};
+
+/* ── Knowledge Base Fikih Dasar ──────────────────────────────── */
+const KB_FIKIH = {
+  shalat: `📿 **Shalat 5 Waktu:**
+• Subuh: 2 rakaat (Fajar – Syuruq)
+• Dzuhur: 4 rakaat (Zawal – Ashar)
+• Ashar: 4 rakaat (Ashar – Maghrib)
+• Maghrib: 3 rakaat (Terbenam – Isya)
+• Isya: 4 rakaat (Gelap – Fajar)
+
+*Syarat shalat:* Islam, baligh, berakal, suci dari hadats, menutup aurat, menghadap kiblat, masuk waktu.`,
+  wudhu: `💧 **Rukun Wudhu (Fardhunya):**
+1. Niat
+2. Membasuh muka
+3. Membasuh kedua tangan hingga siku
+4. Mengusap sebagian kepala
+5. Membasuh kedua kaki hingga mata kaki
+6. Tertib (berurutan)`,
+  puasa: `🌙 **Puasa Ramadhan:**
+Wajib bagi Muslim yang: baligh, berakal, sehat, mukim, mampu.
+Rukun: niat, menahan dari hal yang membatalkan (makan, minum, hubungan suami-istri) dari fajar hingga maghrib.`,
+};
+
+/* ── Knowledge Base Doa ──────────────────────────────────────── */
+const KB_DOA = {
+  sebelumBaca: `🤲 **Doa Sebelum Membaca Al-Qur\'an:**
+أَعُوذُ بِاللَّهِ مِنَ الشَّيْطَانِ الرَّجِيمِ
+*A\'uudzubillahi minasy-syaithaanir rajiim*
+"Aku berlindung kepada Allah dari setan yang terkutuk"
+
+Lalu membaca Basmalah: بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ`,
+  sesudahBaca: `🤲 **Doa Sesudah Membaca Al-Qur\'an:**
+صَدَقَ اللَّهُ الْعَظِيمُ
+*Shadaqallahul adzim*
+"Maha Benar Allah Yang Maha Agung"`,
+  hafalanBaru: `🤲 **Doa Meminta Kemudahan Hafalan:**
+رَبِّ زِدْنِي عِلْمًا وَارْزُقْنِي فَهْمًا
+*Rabbi zidni ilman warzuqni fahman*
+"Ya Allah, tambahkanlah ilmuku dan anugerahkan aku pemahaman"
+
+اللَّهُمَّ افْتَحْ عَلَيَّ حِكْمَتَكَ
+*Allahumma iftah alayya hikmataka*
+"Ya Allah, bukakanlah hikmah-Mu kepadaku"`,
+};
+
+/* ══════════════════════════════════════════════════════════════
+   RAG ENGINE — Cari konteks lokal sebelum kirim ke AI
+══════════════════════════════════════════════════════════════ */
+function agRAGCariKonteks(pertanyaan) {
+  const q     = pertanyaan.toLowerCase();
+  const parts = [];
+
+  /* Cari surah relevan */
+  const surahData = agCariSurah(q);
+  if (surahData) {
+    parts.push(`DATA SURAH:\nNomor: ${surahData.n} | Nama: ${surahData.n} (${surahData.ar}) | Arti: ${surahData.arti} | Ayat: ${surahData.ayat} | Juz: ${surahData.juz} | Golongan: ${surahData.type} | Tema: ${surahData.tema}`);
+  }
+
+  /* Cari tajwid relevan */
+  const tajwidKey = agCariTajwid(q);
+  if (tajwidKey) {
+    parts.push(`DATA TAJWID:\n${KB_TAJWID[tajwidKey].replace(/\*\*/g,'').replace(/\*/g,'')}`);
+  }
+
+  /* Cari hadis relevan */
+  const kata = q.split(' ');
+  const hadisRelevan = KB_HADIS.filter(h =>
+    kata.some(k => h.tema.includes(k) || h.teks.toLowerCase().includes(k))
+  ).slice(0, 2);
+  if (hadisRelevan.length) {
+    parts.push(`HADIS RELEVAN:\n${hadisRelevan.map(h => `"${h.teks}" — ${h.rawi}`).join('\n')}`);
+  }
+
+  /* Cari kisah nabi */
+  for (const [nama, kisah] of Object.entries(KB_NABI)) {
+    if (q.includes(nama) || q.includes('nabi ' + nama)) {
+      parts.push(`KISAH NABI:\n${kisah}`);
+      break;
+    }
+  }
+
+  /* Tips hafalan */
+  if (/tips|cara|metode|teknik|menghafal/.test(q))
+    parts.push(`TIPS HAFALAN:\n${KB_TIPS.umum.replace(/\*\*/g,'').replace(/\*/g,'')}`);
+  if (/murajaah|muraja|mengulang/.test(q))
+    parts.push(`TIPS MURAJAAH:\n${KB_TIPS.murajaah.replace(/\*\*/g,'').replace(/\*/g,'')}`);
+  if (/lupa|hilang hafalan/.test(q))
+    parts.push(`MENGATASI LUPA:\n${KB_TIPS.lupa.replace(/\*\*/g,'').replace(/\*/g,'')}`);
+
+  /* Fikih */
+  if (/shalat|solat/.test(q)) parts.push(`FIKIH SHALAT:\n${KB_FIKIH.shalat}`);
+  if (/wudhu|wudu/.test(q))   parts.push(`FIKIH WUDHU:\n${KB_FIKIH.wudhu}`);
+  if (/puasa|ramadhan/.test(q)) parts.push(`FIKIH PUASA:\n${KB_FIKIH.puasa}`);
+
+  /* Doa */
+  if (/doa.*baca|sebelum.*baca/.test(q)) parts.push(`DOA:\n${KB_DOA.sebelumBaca}`);
+  if (/doa.*hafal|hafalan.*doa/.test(q)) parts.push(`DOA HAFALAN:\n${KB_DOA.hafalanBaru}`);
+
+  return parts.join('\n\n');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FORMAT TEKS — Markdown ringan ke HTML
+══════════════════════════════════════════════════════════════ */
+function agFormatTeks(teks) {
+  return teks
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n]+?)\*/g, '<strong>$1</strong>')
+    .replace(/^#{1,3}\s(.+)$/gm, '<strong>$1</strong>')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>')
+    .replace(/\|(.+)\|/g, (m) => {
+      // Simple table support
+      const cells = m.split('|').filter(c => c.trim());
+      return '<span style="font-family:monospace;font-size:11px">' + cells.map(c => c.trim()).join(' | ') + '</span>';
+    });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   KIRIM PESAN — Dengan memori percakapan
+══════════════════════════════════════════════════════════════ */
 async function agKirimPesan(teksOverride) {
   const inp  = document.getElementById('agTextInput');
   const teks = (teksOverride || inp?.value || '').trim();
   if (!teks) return;
   if (inp) inp.value = '';
 
-  /* Tampilkan bubble user */
   agTambahBubble('user', teks);
   AG.chatHistory.push({ role: 'user', text: teks });
 
-  /* Hapus welcome jika masih ada */
-  const welcome = document.querySelector('.ag-welcome');
-  if (welcome) welcome.remove();
+  /* Hapus welcome */
+  document.querySelector('.ag-welcome')?.remove();
 
-  /* Typing indicator */
   const typingId = agTampilkanTyping();
 
   try {
-    const balasan = await handleUstazQuery(teks);
+    const balasan = await agTanyaAI(teks);
     agHapusTyping(typingId);
     agTambahBubble('ai', balasan);
     AG.chatHistory.push({ role: 'ai', text: balasan });
 
-    /* TTS balasan AI (suara laki-laki, pelan) */
-    agUcapkan(balasan);
-  } catch (e) {
+    /* TTS — hanya kalimat pertama agar tidak terlalu panjang */
+    const kalimat1 = balasan.replace(/\*+/g,'').replace(/<[^>]+>/g,'').split(/[.!?\n]/)[0].trim();
+    if (kalimat1.length > 3 && kalimat1.length < 150) agUcapkan(kalimat1);
+
+  } catch(e) {
     agHapusTyping(typingId);
-    agTambahBubble('ai', 'Maaf, saya tidak dapat menjawab saat ini. Periksa koneksi internet Anda.');
+    agTambahBubble('ai', 'Maaf, terjadi gangguan. Silakan coba lagi. 😊');
   }
 }
 
-/* Panggil Anthropic API */
+/* ══════════════════════════════════════════════════════════════
+   AI ENGINE UTAMA — Claude API via Proxy + Fallback Lokal
+══════════════════════════════════════════════════════════════ */
 async function agTanyaAI(pertanyaan) {
-  /* Bangun pesan dengan histori (max 6 pesan terakhir) */
-  const histori = AG.chatHistory.slice(-6).map(m => ({
+  /* Cek apakah ada perintah putar audio — handle langsung */
+  if (/^(putar|play|dengarkan|murottal|bunyikan)\s/i.test(pertanyaan.trim())) {
+    return agHandlePutar(pertanyaan);
+  }
+
+  /* ── RAG: kumpulkan konteks lokal ── */
+  const konteks = agRAGCariKonteks(pertanyaan);
+
+  /* ── Bangun histori percakapan (memori 10 pesan terakhir) ── */
+  const histori = AG.chatHistory.slice(-10).map(m => ({
     role   : m.role === 'user' ? 'user' : 'assistant',
-    content: m.text,
+    content: m.text.replace(/<[^>]+>/g,''), // strip HTML
   }));
 
-  /* Tambah pesan saat ini */
-  histori.push({ role: 'user', content: pertanyaan });
+  /* ── Tambah pesan saat ini dengan konteks RAG ── */
+  const pesanDenganKonteks = konteks
+    ? `[KONTEKS DATA]:\n${konteks}\n\n[PERTANYAAN PENGGUNA]:\n${pertanyaan}`
+    : pertanyaan;
 
-  const res  = await fetch('https://api.anthropic.com/v1/messages', {
-    method : 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body   : JSON.stringify({
-      model      : 'claude-sonnet-4-6',
-      max_tokens : 1000,
-      system     : AG_SYSTEM_PROMPT,
-      messages   : histori,
-    }),
-  });
+  histori.push({ role: 'user', content: pesanDenganKonteks });
 
-  if (!res.ok) throw new Error('API error: ' + res.status);
-  const data = await res.json();
-  return data.content?.[0]?.text || 'Maaf, tidak ada respons.';
+  /* ── Coba panggil proxy Claude API ── */
+  try {
+    const res = await fetch(AG_PROXY_URL, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({
+        system  : AG_SYSTEM,
+        messages: histori,
+        model   : 'claude-sonnet-4-6',
+        max_tokens: 1000,
+      }),
+      signal: AbortSignal.timeout(8000), // 8 detik timeout
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const teks = data?.content?.[0]?.text || data?.text || '';
+      if (teks) return teks;
+    }
+  } catch(e) {
+    /* Proxy tidak tersedia → gunakan KB lokal */
+  }
+
+  /* ── FALLBACK: Jawab dari Knowledge Base Lokal ── */
+  return agJawabLokal(pertanyaan, konteks);
 }
+
+/* ── Jawab dari KB lokal (offline mode) ──────────────────────── */
+function agJawabLokal(pertanyaan, konteksRAG) {
+  const q    = pertanyaan.toLowerCase().trim();
+  const qOri = pertanyaan.trim();
+
+  /* ── 1. Surah ── */
+  const surahData = agCariSurah(q);
+  if (surahData) return agFormatSurah(surahData, qOri);
+
+  /* ── 2. Tajwid ── */
+  const tajwidKey = agCariTajwid(q);
+  if (tajwidKey) return KB_TAJWID[tajwidKey];
+
+  /* ── 3. Tips hafalan ── */
+  if (/tips|cara\s+hafal|metode\s+hafal|teknik\s+hafal|cepat\s+hafal/.test(q)) return KB_TIPS.umum;
+  if (/murajaah|muraja'ah|mengulang\s+hafalan/.test(q)) return KB_TIPS.murajaah;
+  if (/lupa\s+hafalan|hafalan\s+hilang/.test(q)) return KB_TIPS.lupa;
+  if (/mutasyabih|ayat\s+mirip/.test(q)) return KB_TIPS.mutasyabih;
+
+  /* ── 4. Keutamaan ── */
+  if (/keutamaan|fadhilah|pahala|manfaat/.test(q)) {
+    if (/fatihah/.test(q)) return `⭐ **Keutamaan Al-Fatihah:**\n\nDisebut "Ummul Qur'an" (induk Al-Qur'an) dan "As-Sab'ul Matsani" (7 ayat yang diulang).\n\n• Wajib dibaca di setiap rakaat shalat — "Tidak sah shalat tanpa Al-Fatihah" (HR. Bukhari-Muslim)\n• Obat untuk berbagai penyakit (HR. Bukhari)\n• Mengandung intisari seluruh Al-Qur'an`;
+    if (/kahf/.test(q)) return `⭐ **Keutamaan Al-Kahf:**\n\n• Baca setiap Jumat → bersinar cahaya antara dua Jumat (HR. Hakim)\n• 10 ayat pertama/terakhir → pelindung dari fitnah Dajjal\n• Mengandung 4 kisah sarat hikmah: Iman, Harta, Ilmu, Kekuasaan`;
+    if (/yasin|ya.?sin/.test(q)) return `⭐ **Keutamaan Ya Sin:**\n\n• Disebut "Qalbul Qur'an" — jantung Al-Qur'an\n• Dibacakan kepada orang yang sakaratul maut\n• Berisi inti akidah: tauhid, risalah, hari kiamat`;
+    if (/mulk/.test(q)) return `⭐ **Keutamaan Al-Mulk:**\n\n• "Al-Mani'ah" — penghalang dari azab kubur\n• Nabi tidak tidur sebelum membaca Al-Mulk dan As-Sajdah\n• Syafa'at bagi yang rutin membacanya`;
+    if (/ikhlas/.test(q)) return `⭐ **Keutamaan Al-Ikhlas:**\n\n• Setara membaca **1/3 Al-Qur'an** (HR. Bukhari-Muslim)\n• Membaca 3× = seperti mengkhatamkan Al-Qur'an\n• Berisi tauhid murni yang paling sempurna`;
+    if (/quran|qur.?an/.test(q)) return `⭐ **Keutamaan Menghafal Al-Qur'an:**\n\n• "Sebaik-baik kalian adalah yang belajar Al-Qur'an dan mengajarkannya" — HR. Bukhari\n• Penghafal memberi mahkota kepada orang tuanya di hari kiamat\n• Kedudukan di surga sesuai banyaknya hafalan\n• Termasuk ahlullah (keluarga Allah) di bumi\n• Mendapat syafa'at Al-Qur'an`;
+  }
+
+  /* ── 5. Kisah Nabi ── */
+  for (const [nama, kisah] of Object.entries(KB_NABI)) {
+    if (q.includes(nama) || q.includes('nabi ' + nama) || q.includes('rasul ' + nama)) {
+      return `📖 **Kisah Nabi ${nama.charAt(0).toUpperCase() + nama.slice(1)} AS:**\n\n${kisah}`;
+    }
+  }
+
+  /* ── 6. Doa ── */
+  if (/doa.*sebelum.*baca|sebelum.*baca.*quran|adab.*baca/.test(q)) return KB_DOA.sebelumBaca;
+  if (/doa.*sesudah|sesudah.*baca/.test(q)) return KB_DOA.sesudahBaca;
+  if (/doa.*hafal|hafal.*doa|doa.*mudahkan/.test(q)) return KB_DOA.hafalanBaru;
+  if (/doa/.test(q)) return `🤲 **Doa-doa dalam Al-Qur'an:**\n\n• **رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً** — Ya Rabb kami, berilah kami kebaikan di dunia dan akhirat (Al-Baqarah: 201)\n• **رَبِّ زِدْنِي عِلْمًا** — Ya Rabbku, tambahkanlah ilmuku (Ta Ha: 114)\n• **رَبَّنَا لَا تُؤَاخِذْنَا** — Ya Rabb, janganlah Engkau hukum kami (Al-Baqarah: 286)\n• **رَبِّ اشْرَحْ لِي صَدْرِي** — Ya Rabbku, lapangkanlah dadaku (Ta Ha: 25)`;
+
+  /* ── 7. Fikih ── */
+  if (/shalat|sholat/.test(q) && !/surah|suarat/.test(q)) return KB_FIKIH.shalat;
+  if (/wudhu|wudu/.test(q))   return KB_FIKIH.wudhu;
+  if (/puasa/.test(q))         return KB_FIKIH.puasa;
+
+  /* ── 8. Juz ── */
+  const juzM = q.match(/juz\s*(\d+)|juz\s*ke[- ]?(\d+)/);
+  if (juzM) return agInfoJuz(parseInt(juzM[1] || juzM[2]));
+
+  /* ── 9. Perintah putar ── */
+  if (/putar|play|dengarkan|murottal/.test(q)) return agHandlePutar(qOri);
+
+  /* ── 10. Salam & perkenalan ── */
+  if (/assalamu|salam|hai\b|halo|hello/.test(q))
+    return `Wa'alaikumussalam warahmatullahi wabarakatuh! 😊\n\nAlhamdulillah, senang bisa hadir untuk membantu. Saya **Ustadz AI As-Salam**, siap membantu perjalanan hafalan dan pembelajaran Al-Qur'an Anda.\n\nSilakan tanya tentang:\n• Surah, ayat, atau juz\n• Hukum tajwid\n• Tips dan teknik menghafal\n• Kisah para Nabi\n• Keutamaan surah\n• Atau mulai **sesi simak hafalan** dengan menekan tombol Simak di atas 🎙️`;
+
+  if (/siapa.*kamu|kamu.*siapa|perkenalan/.test(q))
+    return `Saya **Ustadz AI As-Salam** — asisten digital pembelajaran Al-Qur'an yang terintegrasi dalam aplikasi Al Qur'an As-Salam.\n\nSaya dirancang untuk membantu:\n• 📖 Informasi lengkap 114 surah\n• 🔤 Hukum tajwid dan makhraj\n• 💡 Teknik menghafal efektif\n• 🔄 Strategi murajaah\n• 📚 Kisah para Nabi\n• 🎙️ Menyimak hafalan secara langsung\n• 🎵 Memutar murottal surah pilihan\n\nInsya Allah saya akan berusaha membantu sebaik-baiknya! 🤲`;
+
+  /* ── 11. Berapa surah/ayat/juz ── */
+  if (/berapa.*surah|jumlah.*surah/.test(q)) return `Al-Qur'an memiliki **114 surah**, **6.236 ayat**, dan **30 juz**. Surah terpanjang adalah Al-Baqarah (286 ayat), terpendek Al-Kausar, An-Nasr, Al-Asr (3 ayat).`;
+  if (/wahyu.*pertama|pertama.*turun/.test(q)) return `Wahyu pertama adalah **Al-'Alaq ayat 1-5** (اقْرَأْ بِسْمِ رَبِّكَ الَّذِي خَلَقَ). Turun di **Gua Hira**, 17 Ramadhan, 13 tahun sebelum hijrah, saat Nabi berusia 40 tahun.`;
+  if (/wahyu.*terakhir|terakhir.*turun/.test(q)) return `Wahyu terakhir yang paling masyhur adalah **Al-Maidah ayat 3** — "Pada hari ini telah Kusempurnakan agamamu..." Turun saat **Haji Wada'** (haji perpisahan), sekitar 81-82 hari sebelum Nabi wafat.`;
+
+  /* ── 12. Motivasi ── */
+  if (/semangat|motivasi|capek|menyerah|susah|berat|bisa\s*gak/.test(q))
+    return `MasyaAllah, semangat Anda menghafal Al-Qur'an adalah tanda cinta Allah kepada Anda! 💚\n\n*"Sesungguhnya Allah tidak menyia-nyiakan pahala orang yang berbuat baik."* (QS. At-Taubah: 120)\n\n**Ingatlah:**\n• Setiap huruf yang Anda baca = 10 kebaikan\n• Orang yang terbata-bata dalam membaca = 2 pahala (HR. Bukhari-Muslim)\n• Kesulitan dalam menghafal = derajat yang lebih tinggi di surga\n\n💪 Mulai dari yang kecil, konsisten, dan minta tolong Allah setiap hari. Insya Allah bisa!`;
+
+  /* ── 13. Topik di luar Islam ── */
+  const topikLuar = /cuaca|berita|politik|olahraga|masak|resep|film|musik|game|teknologi|komputer|saham|bisnis/;
+  if (topikLuar.test(q))
+    return `Maaf, saya hanya bisa membantu hal seputar **Al-Qur'an dan hafalan**. 😊\n\nSebagai Guru Tahfizh digital, pengetahuan saya terbatas pada bidang Al-Qur'an, tajwid, dan ilmu-ilmu Islam.\n\nSilakan tanya tentang:\n• Surah atau ayat Al-Qur'an\n• Hukum tajwid\n• Tips menghafal\n• Keutamaan surah\n• Kisah Nabi\n• Atau mulai sesi simak hafalan 🎙️`;
+
+  /* ── Default dengan konteks ── */
+  if (konteksRAG) {
+    return `Berdasarkan data yang saya miliki:\n\n${konteksRAG.split('\n').slice(0,8).join('\n')}\n\nUntuk penjelasan lebih mendalam tentang *"${pertanyaan}"*, disarankan untuk merujuk kepada guru atau ustadz langsung. **Wallahu a'lam bishawab.** 🤲`;
+  }
+
+  return `Pertanyaan yang baik, Alhamdulillah! 😊\n\nUntuk pertanyaan *"${pertanyaan}"*, saya belum memiliki data spesifiknya. **Wallahu a'lam bishawab.**\n\nSaran saya:\n• Tanyakan kepada guru/ustadz langsung\n• Rujuk kitab tafsir terpercaya (Ibnu Katsir, Al-Jalalain)\n• Kunjungi situs islami terpercaya\n\nYang pasti saya bisa bantu: info 114 surah, tajwid, tips hafalan, kisah Nabi, dan simak hafalan. 🤲`;
+}
+
+/* ── Helper: Cari Surah ───────────────────────────────────────── */
+function agCariSurah(q) {
+  const cleaned = q.replace(/surah|surat|apa|arti|berapa|ayat|juz|nomor|tentang|bagaimana|jelaskan|sebutkan/g,'').trim();
+
+  /* Cari berdasarkan nomor */
+  const numM = q.match(/(?:surah|surat|nomor|no\.?|ke-?)\s*(\d+)|^(\d+)\s*$|(?:ke|nomor)\s*(\d+)/);
+  if (numM) {
+    const n = parseInt(numM[1] || numM[2] || numM[3]);
+    if (n >= 1 && n <= 114) return { ...KB_SURAH[n], nomor: n };
+  }
+
+  /* Cari berdasarkan nama */
+  const norm = s => s.toLowerCase().replace(/['\-\s]/g,'').replace(/^(al|an|as|at|az|asy)/,'');
+  const qNorm = norm(cleaned);
+
+  for (const [id, s] of Object.entries(KB_SURAH)) {
+    const nNorm = norm(s.n);
+    if (nNorm === qNorm || nNorm.includes(qNorm) || qNorm.includes(nNorm)) {
+      return { ...s, nomor: parseInt(id) };
+    }
+  }
+
+  /* Cari berdasarkan arti */
+  if (/arti|artinya|meaning/.test(q)) {
+    const qArti = q.replace(/arti|artinya|meaning|surah|surat/g,'').trim();
+    for (const [id, s] of Object.entries(KB_SURAH)) {
+      if (s.arti.toLowerCase().includes(qArti) || qArti.includes(s.arti.toLowerCase())) {
+        return { ...s, nomor: parseInt(id) };
+      }
+    }
+  }
+
+  return null;
+}
+
+function agFormatSurah(s, qOri) {
+  const q = qOri.toLowerCase();
+  if (/berapa.*ayat|ayat.*berapa|jumlah.*ayat/.test(q))
+    return `📖 Surah **${s.n}** (${s.ar}) memiliki **${s.ayat} ayat**, termasuk golongan **${s.type}**, berada di **Juz ${s.juz}**.`;
+  if (/arti|artinya/.test(q))
+    return `📖 Surah **${s.n}** (${s.ar}) artinya **"${s.arti}"**.`;
+  if (/juz/.test(q))
+    return `📖 Surah **${s.n}** berada di **Juz ${s.juz}**.`;
+  if (/makkiyah|madaniyah|turun/.test(q))
+    return `📖 Surah **${s.n}** termasuk **${s.type}** — diturunkan di ${s.type === 'Makkiyah' ? 'Mekah sebelum hijrah' : 'Madinah setelah hijrah'}.`;
+
+  return `📖 **Surah ${s.n} — ${s.ar}**\n\n` +
+    `• Nomor: **${s.nomor}** dari 114 surah\n` +
+    `• Arti: **${s.arti}**\n` +
+    `• Jumlah Ayat: **${s.ayat} ayat**\n` +
+    `• Juz: **Juz ${s.juz}**\n` +
+    `• Golongan: **${s.type}**\n` +
+    `• Tema: ${s.tema}\n\n` +
+    `_Ketik "putar ${s.n}" untuk memutar murottal surah ini_ 🎵`;
+}
+
+/* ── Helper: Cari Tajwid ─────────────────────────────────────── */
+function agCariTajwid(q) {
+  if (/nun.*(mati|sukun)|tanwin/.test(q))   return 'nun mati';
+  if (/mim.*(mati|sukun)/.test(q))          return 'mim mati';
+  if (/\bmad\b|panjang.*baca|bacaan.*panjang/.test(q)) return 'mad';
+  if (/ghunnah|dengung/.test(q))            return 'ghunnah';
+  if (/qalqalah|memantul/.test(q))          return 'qalqalah';
+  if (/waqaf|berhenti|tanda.*baca/.test(q)) return 'waqaf';
+  if (/\bidgham\b/.test(q))                 return 'idgham';
+  if (/\bizhar\b/.test(q))                  return 'izhar';
+  if (/ikhfa'?/.test(q))                    return 'ikhfa';
+  if (/makhraj|tempat.*keluar/.test(q))     return 'makhraj';
+  if (/iqlab/.test(q))                      return 'iqlab';
+  return null;
+}
+
+/* ── Helper: Info Juz ────────────────────────────────────────── */
+function agInfoJuz(juzN) {
+  if (juzN < 1 || juzN > 30) return `Al-Qur'an terdiri dari **30 juz** (Juz 1-30). Juz 30 disebut **Juz 'Amma** yang berisi surah-surah pendek (An-Naba s.d. An-Nas).`;
+  const surahDiJuz = Object.entries(KB_SURAH).filter(([,s]) => s.juz === juzN).map(([,s]) => s.n);
+  return `📚 **Juz ${juzN}:**\n\nSurah dalam Juz ${juzN}: ${surahDiJuz.join(', ')}\n\nTips hafalan Juz ${juzN}: Mulai dari surah yang paling dikenal, hafalkan dengan tartil, dan murajaah setiap hari! 💪`;
+}
+
+/* ── Helper: Putar Audio ─────────────────────────────────────── */
+function agHandlePutar(q) {
+  const qL = q.toLowerCase();
+
+  /* Cari nomor langsung */
+  const numM = qL.match(/(\d+)/);
+  if (numM) {
+    const n = parseInt(numM[1]);
+    if (n >= 1 && n <= 114) {
+      const s = KB_SURAH[n];
+      setTimeout(() => {
+        currentSurahNum = n;
+        fetchAyahData(n).then(data => {
+          currentAyahData = data; currentAyahIndex = 0;
+          playAyah(0); showPlayer();
+        });
+      }, 500);
+      return `🎵 Memutar murottal **Surah ${s.n} (${s.ar})** — ${s.arti}.\n\nSemoga bacaan murottal ini menambah kekhusyukan dan membantu hafalan Anda. 🤲`;
+    }
+  }
+
+  /* Cari nama surah */
+  const surahM = agCariSurah(qL.replace(/putar|play|dengarkan|murottal|bunyikan/g,'').trim());
+  if (surahM) {
+    setTimeout(() => {
+      currentSurahNum = surahM.nomor;
+      fetchAyahData(surahM.nomor).then(data => {
+        currentAyahData = data; currentAyahIndex = 0;
+        playAyah(0); showPlayer();
+      });
+    }, 500);
+    return `🎵 Memutar murottal **Surah ${surahM.n} (${surahM.ar})** — ${surahM.arti}.\n\nNikmati lantunan Al-Qur'an! 🤲`;
+  }
+
+  return `🎵 Surah apa yang ingin diputar?\n\nContoh:\n• "putar surah 36" → Ya Sin\n• "putar Al-Kahf"\n• "putar 67" → Al-Mulk\n\nInsya Allah langsung diputarkan!`;
+}
+
 
 /* Tambah bubble chat */
 function agTambahBubble(role, teks) {
   const chat = document.getElementById('agChat');
   if (!chat) return;
 
-  const wrap = document.createElement('div');
+  const wrap    = document.createElement('div');
   wrap.className = `ag-bubble-wrap ${role}`;
 
   const now  = new Date();
   const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
+  /* Format teks AI dengan markdown ringan */
+  const htmlTeks = role === 'ai' ? agFormatTeks(teks) : teks.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+
   if (role === 'ai') {
     wrap.innerHTML = `
       <div class="ag-bubble-avatar"><span class="material-icons">record_voice_over</span></div>
       <div>
-        <div class="ag-bubble ai">${teks.replace(/\n/g,'<br>')}</div>
+        <div class="ag-bubble ai">${htmlTeks}</div>
         <div class="ag-bubble-time">${time}</div>
       </div>`;
   } else {
     wrap.innerHTML = `
       <div>
-        <div class="ag-bubble user">${teks.replace(/\n/g,'<br>')}</div>
+        <div class="ag-bubble user">${htmlTeks}</div>
         <div class="ag-bubble-time">${time}</div>
       </div>`;
   }
@@ -3219,209 +4012,3 @@ window.downloadSingleAyah  = downloadSingleAyah;
 window.downloadFullSurah   = downloadFullSurah;
 window.mintaIzinProaktif   = mintaIzinProaktif;
 
-/* =========================================================
-   USTAZ AI HANDLER
-   Versi Al Qur'an As Salam
-   ========================================================= */
-
-/* -----------------------------
-   NORMALISASI NAMA SURAH
------------------------------ */
-
-function aiNormalisasiNama(str){
-    return String(str || "")
-        .toLowerCase()
-        .replace(/[-']/g,"")
-        .replace(/^(al|an|ar|as|at|az)\s?/,"")
-        .replace(/\s+/g,"")
-        .trim();
-}
-
-/* -----------------------------
-   CARI SURAH BERDASARKAN NAMA
------------------------------ */
-
-function aiCariSurahByNama(nama){
-
-    let q = aiNormalisasiNama(nama);
-
-    if (AI_SURAH_ALIAS[q]) {
-        q = aiNormalisasiNama(AI_SURAH_ALIAS[q]);
-    }
-
-    return SURAH_DATA.find(s=>{
-
-        const latin = aiNormalisasiNama(s.latin);
-        const arti  = aiNormalisasiNama(s.arti || "");
-        const arab  = String(s.ar || "");
-
-        return (
-            latin === q ||
-            latin.includes(q) ||
-            q.includes(latin) ||
-            arti === q ||
-            arti.includes(q) ||
-            arab.includes(nama)
-        );
-
-    });
-
-}
-
-const AI_SURAH_ALIAS = {
-
-    "yasin":"ya sin",
-    "kahfi":"al kahf",
-    "ikhlas":"al ikhlas",
-    "falaq":"al falaq",
-    "nas":"an nas",
-    "baqarah":"al baqarah",
-    "fatihah":"al fatihah",
-    "mulk":"al mulk",
-    "rahman":"ar rahman",
-    "waqiah":"al waqiah",
-    "kahf":"al kahf"
-
-};
-
-/* -----------------------------
-   CARI SURAH BERDASARKAN NOMOR
------------------------------ */
-
-function aiCariSurahByNomor(no){
-
-    return SURAH_DATA.find(s=>s.n===Number(no));
-
-}
-/* =========================================================
-   INTENT DETECTOR
-   ========================================================= */
-
-const AI_INTENT_PATTERNS = [
-
-/* -----------------------------
-   Surah ke berapa
------------------------------ */
-
-{
-regex:/(?:surah\s+)?([a-zA-Z' -]+?)\s+(?:surah\s+)?(?:ke\s?berapa|nomor\s?berapa|urutan\s?ke\s?berapa)/i,
-
-handler:(m)=>{
-
-const s=aiCariSurahByNama(m[1]);
-
-if(!s) return null;
-
-return `Surah ${s.latin} adalah surah ke-${s.n}, terdiri dari ${s.ayat} ayat, dan termasuk golongan ${s.type}.`;
-
-}
-
-},
-
-/* -----------------------------
-   Surah nomor berapa
------------------------------ */
-
-{
-regex:/surah\s+(?:ke|nomor)\s*(\d{1,3})/i,
-
-handler:(m)=>{
-
-const s=aiCariSurahByNomor(m[1]);
-
-if(!s) return null;
-
-return `Surah ke-${s.n} adalah ${s.latin}, terdiri dari ${s.ayat} ayat (${s.type}).`;
-
-}
-
-},
-
-/* -----------------------------
-   Jumlah ayat
------------------------------ */
-
-{
-regex:/(?:berapa|jumlah)\s+ayat\s+(?:surah\s+)?([a-zA-Z' -]+)/i,
-
-handler:(m)=>{
-
-const s=aiCariSurahByNama(m[1]);
-
-if(!s) return null;
-
-return `Surah ${s.latin} memiliki ${s.ayat} ayat.`;
-
-}
-
-},
-
-/* -----------------------------
-   Makkiyah / Madaniyah
------------------------------ */
-
-{
-regex:/([a-zA-Z' -]+?)\s+(?:turun\s?dimana|makkiyah\s?atau\s?madaniyah|termasuk\s?golongan\s?apa)/i,
-
-handler:(m)=>{
-
-const s=aiCariSurahByNama(m[1]);
-
-if(!s) return null;
-
-return `Surah ${s.latin} termasuk golongan ${s.type}.`;
-
-}
-
-}
-
-];
-
-/* =========================================================
-   HANDLE USTAZ QUERY
-   ========================================================= */
-
-async function handleUstazQuery(userText){
-
-    userText = String(userText || "").trim();
-
-    /* ===========================
-       CEK PERTANYAAN FAKTUAL
-    ============================ */
-
-    for(const item of AI_INTENT_PATTERNS){
-
-        const match = userText.match(item.regex);
-
-        if(match){
-
-            const hasil = item.handler(match);
-
-            if(hasil){
-
-                return hasil;
-
-            }
-
-        }
-
-    }
-
-    /* ===========================
-       BUKAN PERTANYAAN FAKTA
-       KIRIM KE CLAUDE
-    ============================ */
-
-    try{
-
-        return await agTanyaAI(userText);
-
-    }catch(err){
-
-        console.error(err);
-
-        return "Maaf, saya belum dapat menjawab pertanyaan tersebut saat ini.";
-
-    }
-
-}

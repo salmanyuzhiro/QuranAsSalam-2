@@ -2678,12 +2678,13 @@ body.dark .simak-bantuan-tidak {
 
 /* ── Layout utama view ─────────────────────────────────────── */
 #simak-view {
-  display: flex !important;
+  display: flex;
   flex-direction: column;
   height: calc(100vh - 122px);
   overflow: hidden;
-  padding: 0 !important;
+  padding: 0;
 }
+#simak-view.hidden { display: none; }
 
 /* ── HEADER ────────────────────────────────────────────────── */
 .ag-header {

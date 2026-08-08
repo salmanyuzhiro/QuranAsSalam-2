@@ -175,39 +175,8 @@
           <button id="btn-play-full-audio" class="banner-play-btn">
             <span class="material-icons">play_arrow</span> Putar Semua
           </button>
-          <button id="btn-download-surah" class="banner-dl-btn" onclick="showDownloadPanel()">
-            <span class="material-icons">download</span> Unduh Murottal
-          </button>
         </div>
 
-        <!-- DOWNLOAD PANEL -->
-        <div id="download-panel" class="download-panel hidden">
-          <div class="dl-panel-title">
-            <span class="material-icons">download</span>
-            Unduh / Dengarkan Murottal Online
-          </div>
-          <p class="dl-panel-sub">Pilih qari lalu tekan tombol untuk mendengarkan atau mengunduh murottal surah ini.</p>
-          <div class="dl-qari-grid" id="dlQariGrid"></div>
-          <div class="dl-ayah-section">
-            <div class="dl-ayah-title">
-              <span class="material-icons">queue_music</span>
-              Unduh Per Ayat
-            </div>
-            <div class="dl-ayah-row">
-              <select class="dl-select" id="dlAyahSelect"></select>
-              <button class="dl-ayah-btn" onclick="downloadSingleAyah()">
-                <span class="material-icons">download</span> Unduh Ayat
-              </button>
-              <button class="dl-ayah-play-btn" onclick="playOnlineAyah()">
-                <span class="material-icons">play_circle</span> Putar Online
-              </button>
-            </div>
-          </div>
-          <div class="dl-info">
-            <span class="material-icons">info_outline</span>
-            Audio dari everyayah.com · Format MP3 · Gratis
-          </div>
-        </div>
         <div class="audio-range-box">
           <div class="range-row">
             <div class="range-group"><label>Dari Ayat</label><select id="audio-from-ayah"></select></div>

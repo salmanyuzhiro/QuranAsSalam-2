@@ -3117,3 +3117,11 @@ body.dark .ag-voice-btn { background: var(--g900); color: var(--g300); }
 }
 .ag-chip:hover { background: var(--g50); }
 
+.splash-author {
+    margin-top: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-align: center;
+    opacity: 0.85;
+}

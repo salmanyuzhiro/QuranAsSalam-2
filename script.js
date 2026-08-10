@@ -3086,34 +3086,46 @@ async function agKirimPesan(teksOverride) {
    AI ENGINE UTAMA — Claude API via Proxy + Fallback Lokal
 ══════════════════════════════════════════════════════════════ */
 async function agTanyaAI(pertanyaan) {
-  /* Cek apakah ada perintah putar audio — handle langsung */
+  /* Perintah putar audio ditangani langsung, tidak perlu ke Gemini */
   if (/^(putar|play|dengarkan|murottal|bunyikan)\s/i.test(pertanyaan.trim())) {
     return agHandlePutar(pertanyaan);
   }
 
-  /* ── RAG: kumpulkan konteks lokal ── */
+  /* RAG: konteks data lokal (surah, tajwid, hadis, dsb) */
   const konteks = agRAGCariKonteks(pertanyaan);
 
-  /* ── Bangun histori percakapan (memori 10 pesan terakhir) ── */
-  const histori = AG.chatHistory.slice(-10).map(m => ({
-    role   : m.role === 'user' ? 'user' : 'assistant',
-    content: m.text.replace(/<[^>]+>/g,''), // strip HTML
-  }));
+  /*
+   * PENTING: AG.chatHistory sudah berisi pesan user saat ini
+   * (di-push oleh agKirimPesan sebelum fungsi ini dipanggil).
+   * Jadi di sini kita ambil histori TANPA pesan terakhir itu,
+   * lalu tambahkan sekali saja versi ber-RAG-nya.
+   * Ini menjaga urutan role tetap bergantian user/model —
+   * Gemini menolak request kalau ada 2 giliran "user" berturut-turut.
+   */
+  const historiSebelumnya = AG.chatHistory
+    .slice(0, -1)   // buang pesan user saat ini (akan ditambahkan lagi di bawah)
+    .slice(-10)     // sisakan 10 pesan terakhir sebagai memori
+    .map(m => ({
+      role   : m.role === 'user' ? 'user' : 'assistant',
+      content: m.text.replace(/<[^>]+>/g, ''), // strip HTML
+    }));
 
-  /* ── Tambah pesan saat ini dengan konteks RAG ── */
   const pesanDenganKonteks = konteks
     ? `[KONTEKS DATA]:\n${konteks}\n\n[PERTANYAAN PENGGUNA]:\n${pertanyaan}`
     : pertanyaan;
 
-  histori.push({ role: 'user', content: pesanDenganKonteks });
+  const histori = [
+    ...historiSebelumnya,
+    { role: 'user', content: pesanDenganKonteks },
+  ];
 
-  /* ── Panggil proxy Gemini — 100% jawaban dari online, TIDAK ada fallback ke KB lokal ── */
   try {
-    const teks = await kirimKeGemini(AG_SYSTEM, histori);
-    return teks;
+    return await kirimKeGemini(AG_SYSTEM, histori);
   } catch (e) {
-    console.error('[AI]', e);
-    throw new Error('Gagal terhubung ke server AI (Gemini). Periksa koneksi internet Anda dan coba lagi.');
+    console.error('[agTanyaAI]', e);
+    throw new Error(
+      'Gagal terhubung ke server AI (Gemini). Periksa koneksi internet Anda dan coba lagi.'
+    );
   }
 }
 

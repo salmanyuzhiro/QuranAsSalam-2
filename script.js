@@ -2,34 +2,7 @@
    AL QUR'AN AS SALAM — script.js  v4.0
    Tambahan: Simak Hafalan (AI Guru Tahfizh)
    ============================================================ */
-/* =====================================================
-   GEMINI AI CONFIG
-===================================================== */
 
-/* API key TIDAK disimpan di client. Semua request lewat Cloudflare Worker
-   proxy (worker.js) yang menyimpan GEMINI_API_KEY sebagai secret di server. */
-const PROXY_URL = "https://quran-as-salam-ai.salmanyuzhirobahsil.workers.dev/api/chat";
-
-async function kirimKeGemini(systemPrompt, histori) {
-  const res = await fetch(PROXY_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      system: systemPrompt,
-      messages: histori,
-      max_tokens: 1000
-    })
-  });
-
-  if (!res.ok) throw new Error(`Proxy error ${res.status}`);
-
-  const json = await res.json();
-  if (json.error) throw new Error(json.error.message || "Gemini API error");
-
-  const teks = json?.content?.[0]?.text;
-  if (!teks) throw new Error("Respons AI kosong");
-  return teks;
-}
 /* ── DATA & STATE ─────────────────────────────────────────── */
 const SURAH_DATA = [
   {n:1,  ar:"الفاتحة",     latin:"Al-Fatihah",    arti:"Pembukaan",         ayat:7,   type:"Makkiyah"},
@@ -228,7 +201,6 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('dark-mode-toggle')?.addEventListener('change', e => {
     settings.dark = e.target.checked;
     document.body.classList.toggle('dark', settings.dark);
-    updateThemeColorMeta(settings.dark);
     saveSettings();
   });
   document.getElementById('show-latin')?.addEventListener('change', e => {
@@ -711,14 +683,8 @@ function showQiblatInfo() {
 }
 
 /* ── APPLY SAVED SETTINGS ─────────────────────────────────── */
-function updateThemeColorMeta(isDark){
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if(meta) meta.setAttribute('content', isDark ? '#0a1a12' : '#064e3b');
-}
-
 function applySettings(){
   if(settings.dark) document.body.classList.add('dark');
-  updateThemeColorMeta(!!settings.dark);
   const t = (id, val) => { const el = document.getElementById(id); if(el) el.checked = val; };
   const s = (id, val) => { const el = document.getElementById(id); if(el) el.value  = val; };
   t('dark-mode-toggle', !!settings.dark);
@@ -996,7 +962,7 @@ function renderAudioList(){
         <button class="audio-action-btn play-btn" onclick="playFullSurah(${s.n})" title="Putar Online">
           <span class="material-icons">play_circle</span>
         </button>
-        <button class="audio-action-btn dl-btn" onclick="downloadFullSurah(${s.n})" title="Unduh Full Surah">
+        <button class="audio-action-btn dl-btn" onclick="downloadFullSurah(${s.n})" title="Unduh Ayat 1">
           <span class="material-icons">download</span>
         </button>
       </div>
@@ -1031,26 +997,6 @@ function buildAudioUrl(surahNum, ayahNum, qariKey) {
   const s   = pad(surahNum);
   const a   = pad(ayahNum);
   return `https://everyayah.com/data/${q.folder}/${s}${a}.mp3`;
-}
-
-/* Sumber Full Surah (1 file per surah, per-qari) dari mp3quran.net —
-   dipakai untuk unduhan "Full Surah" karena everyayah.com hanya
-   menyediakan per-ayat sehingga unduhan massal sering diblokir browser. */
-const MP3QURAN_FULL = {
-  '01': { server: 'server8',  path: 'afs'    }, // Mishary Alafasy
-  '02': { server: 'server7',  path: 'basit'  }, // Abdul Basit (Murattal)
-  '03': { server: 'server10', path: 'minsh'  }, // Minshawi (Murattal)
-  '04': { server: 'server8',  path: 'hani'   }, // Hani Rifai
-  '05': { server: 'server12', path: 'maher'  }, // Maher Al Muaiqly (Murattal)
-  '06': { server: 'server13', path: 'husr'   }, // Al Husary (Murattal)
-  '07': { server: 'server11', path: 'sds'    }, // As Sudais
-  '08': { server: 'server9',  path: 'hthfi'  }, // Al Hudhaify
-  '09': { server: 'server8',  path: 'ayyub'  }, // Muhammad Ayyoub
-  '10': { server: 'server12', path: 'tblawi' }, // Al Tablaway
-};
-function buildFullSurahUrl(surahNum, qariKey) {
-  const m = MP3QURAN_FULL[qariKey] || MP3QURAN_FULL['01'];
-  return `https://${m.server}.mp3quran.net/download/${m.path}/${pad(surahNum)}.mp3`;
 }
 
 /* ── Tampilkan Panel Download di Banner Surah ── */
@@ -1091,9 +1037,9 @@ function showDownloadPanel() {
             <span class="material-icons">play_circle</span>
             Putar
           </button>
-          <button class="dl-download-btn" onclick="downloadFullSurah(${surahNum}, '${key}')">
+          <button class="dl-download-btn" onclick="downloadAyahDirect(${surahNum}, 1, '${key}')">
             <span class="material-icons">download</span>
-            Unduh Full Surah
+            Unduh Ayat 1
           </button>
         </div>
       </div>`;
@@ -1175,45 +1121,26 @@ function downloadSingleAyah() {
   downloadAyahDirect(currentSurahNum, ayahNum, getQari());
 }
 
-/* ── Download Full Surah (semua ayat) — dipakai di halaman Audio Murottal & panel download ── */
-let _dlSurahRunning = false;
-async function downloadFullSurah(surahNum, qariKey) {
-  if (_dlSurahRunning) {
-    showToastDl('⏳ Masih ada unduhan berjalan, tunggu sampai selesai...');
-    return;
-  }
+/* ── Download dari halaman Audio Murottal (klik tombol DL di list) ── */
+function downloadFullSurah(surahNum) {
   const s      = SURAH_DATA[surahNum - 1];
-  const qKey   = qariKey || getQari();
-  const qFull  = QARI_FULL[qKey];
-  const fname  = `${s.latin}_Full_${qFull.name.replace(/\s/g,'_')}.mp3`;
-  const url    = buildFullSurahUrl(surahNum, qKey);
+  const qKey   = getQari();
+  const q      = QARI_FULL[qKey];
 
-  _dlSurahRunning = true;
-  showToastDl(`⬇ Menyiapkan unduhan Full Surah ${s.latin}...`);
+  // Buka sheet pilihan kecil (alert sederhana → bisa diperluas)
+  // Langsung unduh ayat 1 sebagai sample, beri tahu user
+  const url    = buildAudioUrl(surahNum, 1, qKey);
+  const fname  = `${s.latin}_Ayat1_${q.name.replace(/\s/g,'_')}.mp3`;
+  const a      = document.createElement('a');
+  a.href       = url;
+  a.target     = '_blank';
+  a.rel        = 'noopener';
+  a.download   = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 
-  try {
-    // Ambil file sebagai blob dulu — atribut "download" tidak dipatuhi
-    // browser untuk file lintas-domain (cross-origin), jadi tanpa ini
-    // klik unduh cuma akan membuka pemutar audio, bukan menyimpan file.
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const blob    = await res.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const a       = document.createElement('a');
-    a.href        = blobUrl;
-    a.download    = fname;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-    showToastDl(`✅ ${s.latin} Full · ${qFull.name} berhasil diunduh`);
-  } catch (err) {
-    // Fallback: buka di tab baru — user bisa unduh manual lewat menu (⋮) pemutar
-    showToastDl(`⚠ Unduh otomatis gagal, membuka file di tab baru...`);
-    window.open(url, '_blank', 'noopener');
-  } finally {
-    _dlSurahRunning = false;
-  }
+  showToastDl(`⬇ Unduh ${s.latin} Ayat 1 · ${q.name}`);
 }
 
 /* ── Toast khusus download ── */
@@ -1288,8 +1215,6 @@ function renderAyahList(data){
           <select class="repeat-select" id="repeat-${i}" title="Ulangi">
             <option value="1">1x</option><option value="3">3x</option>
             <option value="5">5x</option><option value="10">10x</option>
-            <option value="20">20x</option><option value="50">50x</option>
-            <option value="100">100x</option>
           </select>
         </div>
       </div>
@@ -2488,29 +2413,29 @@ function agTampilkanWelcome() {
    Jika belum deploy, AI fallback ke KB lokal otomatis.
    Cara deploy: lihat PANDUAN_PROXY.txt yang disertakan.
 ──────────────────────────────────────────────────────────────── */
-
+const AG_PROXY_URL = 'https://quran-ai-proxy.your-subdomain.workers.dev/api/chat';
 // Ganti URL di atas setelah deploy proxy. Selama belum, KB lokal aktif.
 
 /* ── System Prompt Ustadz As-Salam ──────────────────────────── */
-const AG_SYSTEM = `Kamu adalah "Ustadz AI As-Salam" — asisten ilmu keislaman digital yang berhati-hati, berilmu, dan amanah dalam menyampaikan ajaran Islam berdasarkan Al-Qur'an, As-Sunnah, dan khazanah keilmuan ulama.
+const AG_SYSTEM = `Kamu adalah Ustadz AI As-Salam, asisten digital berbasis Al-Qur'an yang berilmu, ramah, dan terpercaya.
 
-PRINSIP UTAMA (tidak boleh dilanggar):
-1. SUMBER WAJIB DISEBUT untuk setiap klaim:
-   - Ayat Al-Qur'an → sebutkan nama surah + nomor ayat (contoh: QS. Al-Baqarah: 183)
-   - Hadits → sebutkan perawi & kitab (contoh: HR. Bukhari no. 5027) serta status keshahihannya bila diketahui (shahih/hasan/dhaif)
-   - Tafsir → sebutkan mufassir/kitab rujukan (Ibnu Katsir, At-Thabari, As-Sa'di, Al-Qurthubi, dll)
-   - Fiqih → sebutkan mazhab (Hanafi/Maliki/Syafi'i/Hanbali) dan/atau kitab rujukan
-2. JANGAN PERNAH mengarang/menebak teks ayat, hadits, atau kutipan ulama. Kalau tidak yakin persis lafalnya, sampaikan intisarinya saja dan arahkan ke rujukan asli, atau katakan tidak yakin.
-3. Bedakan tegas:
-   - Perkara IJMA' (disepakati ulama) → sampaikan sebagai konsensus
-   - Perkara KHILAFIYAH (diperselisihkan mazhab) → sebutkan minimal 2 pendapat utama beserta mazhab/dalil masing-masing, jangan memihak satu pendapat sebagai "yang paling benar" tanpa konteks
-4. Untuk fatwa pribadi yang kompleks/sensitif (talak, waris, nikah, hutang besar, hukum pidana, kondisi darurat): jelaskan kaidah umum + sumber, lalu WAJIB sarankan konsultasi langsung ke ustadz/mufti/lembaga fatwa resmi (MUI/majelis ulama setempat) — jangan beri vonis final.
-5. Kalau rujukan tidak cukup kuat → jawab jujur "Wallahu a'lam", jangan menebak.
-6. Netral antarmazhab & antar-ormas Islam (NU, Muhammadiyah, Persis, dll) — sampaikan perbedaan pendekatan secara adil.
-7. Tolak sopan permintaan ke arah: fatwa kekerasan/ekstremisme, merendahkan kelompok/mazhab lain, atau di luar topik keislaman edukatif.
-8. Bahasa Indonesia santun & hangat, seperti ustadz yang sabar — tidak kaku, tidak sok tahu.
+IDENTITAS:
+- Nama: Ustadz AI As-Salam
+- Keahlian: Al-Qur'an, Tajwid, Hafalan, Tafsir, Hadis, Fikih dasar, Kisah Nabi, Doa
+- Bahasa: Indonesia yang santun, hangat, dan mudah dipahami
+- Gaya: Seperti ustadz yang sabar dan membimbing, bukan robot
 
-FORMAT: jawaban singkat untuk pertanyaan sederhana, terstruktur (poin) untuk yang kompleks. Sumber disertakan di baris yang sama/segera setelah klaim. Tutup topik fiqih berat dengan pengingat singkat untuk tabayyun ke ulama setempat.
+ATURAN MENJAWAB:
+1. Jika pertanyaan tentang Al-Qur'an → sertakan nomor surah/ayat jika relevan
+2. Jika tentang tajwid → jelaskan dengan contoh huruf Arab
+3. Jika tentang tafsir → sebutkan sumber (Ibnu Katsir, Al-Jalalain, dll) jika ada
+4. Jika tentang hadis → sebutkan perawi (Bukhari, Muslim, dll)
+5. Jika tidak yakin → katakan "Wallahu a'lam" dan sarankan bertanya ke guru
+6. Jika pertanyaan di luar Islam → tolak sopan, kembalikan ke topik Al-Qur'an
+7. JANGAN mengarang ayat, hadis, atau dalil yang tidak ada
+8. Gunakan sapaan: Insya Allah, Alhamdulillah, MasyaAllah, Barakallahu fiik secara natural
+9. Jawaban singkat untuk pertanyaan sederhana, panjang untuk yang kompleks
+10. Selalu motivasi pengguna dalam hafalan dan ibadah
 
 KONTEKS APLIKASI:
 - Pengguna sedang menggunakan Aplikasi Al-Qur'an As-Salam
@@ -3078,7 +3003,7 @@ async function agKirimPesan(teksOverride) {
 
   } catch(e) {
     agHapusTyping(typingId);
-    agTambahBubble('ai', e?.message || 'Maaf, terjadi gangguan. Silakan coba lagi. 😊');
+    agTambahBubble('ai', 'Maaf, terjadi gangguan. Silakan coba lagi. 😊');
   }
 }
 
@@ -3086,47 +3011,52 @@ async function agKirimPesan(teksOverride) {
    AI ENGINE UTAMA — Claude API via Proxy + Fallback Lokal
 ══════════════════════════════════════════════════════════════ */
 async function agTanyaAI(pertanyaan) {
-  /* Perintah putar audio ditangani langsung, tidak perlu ke Gemini */
+  /* Cek apakah ada perintah putar audio — handle langsung */
   if (/^(putar|play|dengarkan|murottal|bunyikan)\s/i.test(pertanyaan.trim())) {
     return agHandlePutar(pertanyaan);
   }
 
-  /* RAG: konteks data lokal (surah, tajwid, hadis, dsb) */
+  /* ── RAG: kumpulkan konteks lokal ── */
   const konteks = agRAGCariKonteks(pertanyaan);
 
-  /*
-   * PENTING: AG.chatHistory sudah berisi pesan user saat ini
-   * (di-push oleh agKirimPesan sebelum fungsi ini dipanggil).
-   * Jadi di sini kita ambil histori TANPA pesan terakhir itu,
-   * lalu tambahkan sekali saja versi ber-RAG-nya.
-   * Ini menjaga urutan role tetap bergantian user/model —
-   * Gemini menolak request kalau ada 2 giliran "user" berturut-turut.
-   */
-  const historiSebelumnya = AG.chatHistory
-    .slice(0, -1)   // buang pesan user saat ini (akan ditambahkan lagi di bawah)
-    .slice(-10)     // sisakan 10 pesan terakhir sebagai memori
-    .map(m => ({
-      role   : m.role === 'user' ? 'user' : 'assistant',
-      content: m.text.replace(/<[^>]+>/g, ''), // strip HTML
-    }));
+  /* ── Bangun histori percakapan (memori 10 pesan terakhir) ── */
+  const histori = AG.chatHistory.slice(-10).map(m => ({
+    role   : m.role === 'user' ? 'user' : 'assistant',
+    content: m.text.replace(/<[^>]+>/g,''), // strip HTML
+  }));
 
+  /* ── Tambah pesan saat ini dengan konteks RAG ── */
   const pesanDenganKonteks = konteks
     ? `[KONTEKS DATA]:\n${konteks}\n\n[PERTANYAAN PENGGUNA]:\n${pertanyaan}`
     : pertanyaan;
 
-  const histori = [
-    ...historiSebelumnya,
-    { role: 'user', content: pesanDenganKonteks },
-  ];
+  histori.push({ role: 'user', content: pesanDenganKonteks });
 
+  /* ── Coba panggil proxy Claude API ── */
   try {
-    return await kirimKeGemini(AG_SYSTEM, histori);
-  } catch (e) {
-    console.error('[agTanyaAI]', e);
-    throw new Error(
-      'Gagal terhubung ke server AI (Gemini). Periksa koneksi internet Anda dan coba lagi.'
-    );
+    const res = await fetch(AG_PROXY_URL, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({
+        system  : AG_SYSTEM,
+        messages: histori,
+        model   : 'claude-sonnet-4-6',
+        max_tokens: 1000,
+      }),
+      signal: AbortSignal.timeout(8000), // 8 detik timeout
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const teks = data?.content?.[0]?.text || data?.text || '';
+      if (teks) return teks;
+    }
+  } catch(e) {
+    /* Proxy tidak tersedia → gunakan KB lokal */
   }
+
+  /* ── FALLBACK: Jawab dari Knowledge Base Lokal ── */
+  return agJawabLokal(pertanyaan, konteks);
 }
 
 /* ── Jawab dari KB lokal (offline mode) ──────────────────────── */
